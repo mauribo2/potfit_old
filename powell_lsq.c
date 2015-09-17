@@ -42,7 +42,9 @@
 
 #ifdef ACML
 #include <acml.h>
-#else /* ACML */
+#elif defined OBLAS
+#include <lapacke.h>
+#elif defined MKL
 #include <mkl_lapack.h>
 #endif /* ACML */
 

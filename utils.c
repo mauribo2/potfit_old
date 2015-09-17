@@ -41,12 +41,14 @@
 
 /* 64-bit */
 #elif UINTPTR_MAX == 0xffffffffffffffff
-#ifndef ACML
+#ifdef MKL
 #include <mkl_vml.h>
 #elif defined ACML4
 #include <acml_mv.h>
 #elif defined ACML5
 #include <amdlibm.h>
+#elif defined OBLAS
+#include <lapacke.h>
 #endif /* ACML */
 
 /* wtf */

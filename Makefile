@@ -131,8 +131,8 @@ SHELL = /bin/bash
 # i686-icc 	32bit Intel Compiler
 # i686-gcc  	32bit GNU Compiler
 #
-#SYSTEM 		= x86_64-icc 	# Use this as fallback
-SYSTEM 		= $(shell uname -m)-icc
+SYSTEM 		= x86_64-icc
+##SYSTEM 		= $(shell uname -m)-gcc
 
 # This is the directory where the potfit binary will be moved to.
 # If BIN_DIR is empty, the binary will not be moved.
@@ -141,10 +141,11 @@ BIN_DIR 	= bin/
 # Base directory of your installation of the MKL or ACML
 
 # General settings
-MKLDIR          = /opt/intel/composer_xe_2013.3.163/mkl
+MKLDIR          = ${MKLROOT}
 ACML4DIR  	= /opt/acml4.4.0/gfortran64
 ACML5DIR  	= /opt/acml/gfortran64
 LIBMDIR 	= /opt/acml/libm
+OBLAS		= /opt/packages/openblas/0.2.13-gcc
 
 # ITAP settings
 #BIN_DIR 	= ${HOME}/bin/i386-linux
@@ -163,6 +164,7 @@ MPI_FLAGS	+= -DMPI
 DEBUG_FLAGS	+= -DDEBUG
 ACML4PATH 	= ${ACML4DIR}/lib
 ACML5PATH 	= ${ACML5DIR}/lib
+#FLAGS		= -DOBLAS
 
 ###########################################################################
 #
@@ -186,10 +188,11 @@ ifeq (x86_64-icc,${SYSTEM})
   DEBUG_FLAGS   += -g -Wall
 
 # Intel Math Kernel Library
-ifeq (,$(strip $(findstring acml,${MAKETARGET})))
+ifneq (,$(strip $(findstring mkl,${MAKETARGET})))
   CINCLUDE 	+= -I${MKLDIR}/include
   LIBS 		+= -Wl,--start-group -lmkl_intel_lp64 -lmkl_sequential \
 		   -lmkl_core -Wl,--end-group -lpthread
+  FLAGS		= -DMKL
 endif
 
 # AMD Core Math Library
@@ -221,23 +224,31 @@ ifeq (x86_64-gcc,${SYSTEM})
   PROF_LIBS     += -g3 -pg
   DEBUG_FLAGS   += -g3 -Wall
 
+  CINCLUDE     	+= -lblas
+
+ifneq (,$(strip $(findstring oblas,${MAKETARGET})))
+  CINCLUDE      += -I${OBLAS}/include
+  LIBS 		+= -lopenblas 
+  FLAGS		= -DOBLAS
+endif
+
 # Intel Math Kernel Library
-ifeq (,$(strip $(findstring acml,${MAKETARGET})))
+ifneq (,$(strip $(findstring mkl,${MAKETARGET})))
   CINCLUDE      += -I${MKLDIR}/include
   LIBS 		+= -Wl,--start-group -lmkl_intel_lp64 -lmkl_sequential -lmkl_core \
 		   -Wl,--end-group -lpthread -Wl,--as-needed
 endif
 
-# AMD Core Math Library
-ifneq (,$(strip $(findstring acml4,${MAKETARGET})))
-  CINCLUDE     	+= -I${ACML4DIR}/include
-  LIBS		+= -L${ACML4PATH} -lpthread -lacml -lacml_mv -Wl,--as-needed
-endif
-ifneq (,$(strip $(findstring acml5,${MAKETARGET})))
-  LIBMPATH 	= ${LIBMDIR}/lib/dynamic
-  CINCLUDE     	+= -I${ACML5DIR}/include -I${LIBMDIR}/include
-  LIBS		+= -L${ACML5PATH} -L${LIBMPATH} -lpthread -lacml -lamdlibm -Wl,--as-needed
-endif
+##@@### AMD Core Math Library
+##@@##ifneq (,$(strip $(findstring acml4,${MAKETARGET})))
+##@@##  CINCLUDE     	+= -I${ACML4DIR}/include
+##@@##  LIBS		+= -L${ACML4PATH} -lpthread -lacml -lacml_mv -Wl,--as-needed
+##@@##endif
+##@@##ifneq (,$(strip $(findstring acml5,${MAKETARGET})))
+##@@##  LIBMPATH 	= ${LIBMDIR}/lib/dynamic
+##@@##  CINCLUDE     	+= -I${ACML5DIR}/include -I${LIBMDIR}/include
+##@@##  LIBS		+= -L${ACML5PATH} -L${LIBMPATH} -lpthread -lacml -lamdlibm -Wl,--as-needed
+##@@##endif
 
  export        OMPI_CC OMPI_CLINKER
 endif
@@ -440,7 +451,15 @@ endif
 
 ifneq (,$(strip $(findstring coulomb,${MAKETARGET})))
   ifeq (,$(strip $(findstring eam,${MAKETARGET})))
-    POTFITSRC      += force_elstat.c
+    ifeq (,$(strip $(findstring csh,${MAKETARGET})))
+       POTFITSRC      += force_elstat.c
+    endif  
+  endif
+endif
+
+ifneq (,$(strip $(findstring csh,${MAKETARGET})))
+  ifneq (,$(strip $(findstring coulomb,${MAKETARGET})))
+    POTFITSRC      += force_csh_elstat.c
   endif
 endif
 
@@ -540,6 +559,7 @@ ifneq (,$(strip $(findstring coulomb,${MAKETARGET})))
   INTERACTION = 1
 endif
 
+
 # DIPOLE
 ifneq (,$(strip $(findstring dipole,${MAKETARGET})))
   ifeq (,$(strip $(findstring eam,${MAKETARGET})))
@@ -553,6 +573,17 @@ ifneq (,$(strip $(findstring dipole,${MAKETARGET})))
   CFLAGS  += -DCOULOMB -DDIPOLE
   INTERACTION = 1
 endif
+
+# CSH
+ifneq (,$(strip $(findstring csh,${MAKETARGET})))
+  ifeq (,$(strip $(findstring apot,${MAKETARGET})))
+    ERROR += CSH does not support tabulated potentials
+  endif
+  CFLAGS  += -DCSH
+endif
+
+
+
 
 # angular dependent potentials (ADP)
 ifneq (,$(strip $(findstring adp,${MAKETARGET})))
@@ -689,6 +720,9 @@ potfit:
 # How to compile *.c files
 # special rules for force computation
 powell_lsq.o: powell_lsq.c
+	@echo -e "CC ${CC}"
+	@echo -e "CFLAGS ${CFLAGS}"
+	@echo -e "LIBS ${LIBS}"
 	@echo " [CC] powell_lsq.c"
 	@${CC} ${CFLAGS} ${CINCLUDE} -c $< || { \
 		echo -e "The following command failed with the above error:\n"; \
@@ -747,6 +781,7 @@ endif
 ifneq (,${CC})
 	@${MAKE} --no-print-directory MAKETARGET='$@' STAGE2
 else
+	@echo ${SYSTEM}
 	@echo "There is no compiler defined for this option."
 	@echo -e "Please adjust the Makefile.\n"
 	@exit

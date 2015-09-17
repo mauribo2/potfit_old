@@ -275,6 +275,10 @@ void read_pot_table(pot_table_t *pt, char *filename)
     }
     apt->charge = apt->values[size];
     apt->dp_kappa = apt->values[size + 1];
+#ifdef CSH
+    apt->cweight = apt->values[size + 2];
+#endif /*CORE SHELL weights for coulomb */
+
 #ifdef DIPOLE
     apt->dp_alpha = apt->values[size + 2];
     apt->dp_b = apt->values[size + 3];

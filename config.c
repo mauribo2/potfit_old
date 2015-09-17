@@ -155,6 +155,10 @@ void read_config(char *filename)
     for (i = 0; i < count; i++) {
       atoms[natoms + i].neigh = (neigh_t *)malloc(sizeof(neigh_t));
       reg_for_free(atoms[natoms + i].neigh, "test neigh");
+#ifdef CSH 
+      atoms[natoms + i].coulneigh = (neigh_t *)malloc(sizeof(neigh_t));
+      reg_for_free(atoms[natoms + i].coulneigh, "test neigh");
+#endif
     }
     coheng = (double *)realloc(coheng, (nconf + 1) * sizeof(double));
     if (NULL == coheng)
@@ -556,9 +560,15 @@ void read_config(char *filename)
       2 * cell_scale[0] + 1, 2 * cell_scale[1] + 1, 2 * cell_scale[2] + 1);
 #endif /* DEBUG */
 
+
+
     /* compute the neighbor table */
     for (i = natoms; i < natoms + count; i++) {
+     //printf("\n nat %d  count %d \n", natoms, count  );
       atoms[i].num_neigh = 0;
+#ifdef CSH 
+      atoms[i].num_couln = 0;
+#endif
       /* loop over all atoms for threebody interactions */
 #ifdef THREEBODY
       for (j = natoms; j < natoms + count; j++) {
@@ -579,6 +589,26 @@ void read_config(char *filename)
 	      r = sqrt(SPROD(dd, dd));
 	      type1 = atoms[i].type;
 	      type2 = atoms[j].type;
+   
+
+#ifdef CSH 
+             /* neighbor table for coulomb only */
+	      if (r <= dp_cut ) {
+	        atoms[i].coulneigh =
+	       	 (neigh_t *)realloc(atoms[i].coulneigh, (atoms[i].num_couln + 1) * sizeof(neigh_t));
+	        k = atoms[i].num_couln++;
+	        init_neigh(atoms[i].coulneigh + k);
+	        atoms[i].coulneigh[k].type = type2;
+	        atoms[i].coulneigh[k].nr = j;
+	        atoms[i].coulneigh[k].r = r;
+	        atoms[i].coulneigh[k].r2 = r * r;
+	        atoms[i].coulneigh[k].inv_r = 1.0 / r;
+	        atoms[i].coulneigh[k].dist_r = dd;
+                       // printf(" %d  %d r %f  type %d \n", i, atoms[i].coulneigh[k].nr , atoms[i].coulneigh[k].r, atoms[i].coulneigh[k].type  );
+              }
+#endif
+
+
 	      if (r <= rcut[type1 * ntypes + type2]) {
 		if (r <= rmin[type1 * ntypes + type2]) {
 		  sh_dist = nconf;
@@ -595,6 +625,7 @@ void read_config(char *filename)
 		dd.z /= r;
 		k = atoms[i].num_neigh++;
 		init_neigh(atoms[i].neigh + k);
+                // printf(" %d  %d  %f  rcut pair  \n", i,j, r   );
 		atoms[i].neigh[k].type = type2;
 		atoms[i].neigh[k].nr = j;
 		atoms[i].neigh[k].r = r;

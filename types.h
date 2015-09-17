@@ -54,6 +54,7 @@ typedef struct {
   /* neighbor properties */
   int   type;			/* type of neighboring atom */
   int   nr;			/* number of neighboring atom */
+  int   shell;			/* neighbor atom is a shell or not */
   double r;			/* r */
   double r2;			/* r^2 */
   double inv_r;			/* 1/r */
@@ -211,6 +212,11 @@ typedef struct {
 #endif
 #endif
 
+#ifdef CSH
+  neigh_t *coulneigh;		/* neighbors for coulomb interaction */
+  int   num_couln;               /* number of coulomb neighbors */
+#endif
+
   neigh_t *neigh;		/* dynamic array for neighbors */
 #ifdef THREEBODY
   angle_t *angle_part;		/* dynamic array for angular neighbors */
@@ -279,6 +285,10 @@ typedef struct {
   double *dp_alpha;		/* polarisability */
   double *dp_b;			/* parameter for short-range-dipole-moment */
   double *dp_c;			/* parameter for short-range-dipole-moment */
+#endif
+
+#ifdef CSH
+  double *cweight;              /* coulomb weights for each pair */
 #endif
 
 #ifdef STIWEB

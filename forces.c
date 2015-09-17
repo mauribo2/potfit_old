@@ -45,6 +45,7 @@ void init_forces()
 #ifdef COULOMB
   if (apot_table.sw_kappa)
     init_tails(apot_table.dp_kappa[0]);
+  printf("after tails\n");
 #endif /* COULOMB */
 
   /* set spline density corrections to 0 */
