@@ -72,10 +72,12 @@ void read_config(char *filename)
   sym_tens *stresses;
 #endif /* STRESS */
   vector d, dd, iheight;
-#ifdef THREEBODY
+#if defined THREEBODY  || defined CSH
   int   ijk;
   int   nnn;
   double ccos;
+  double theta;
+  int angularbond ;
 #endif /* THREEBODY */
 
   /* initialize elements array */
@@ -157,7 +159,7 @@ void read_config(char *filename)
       reg_for_free(atoms[natoms + i].neigh, "test neigh");
 #ifdef CSH 
       atoms[natoms + i].coulneigh = (neigh_t *)malloc(sizeof(neigh_t));
-      reg_for_free(atoms[natoms + i].coulneigh, "test neigh");
+      reg_for_free(atoms[natoms + i].coulneigh, "coulomb neigh");
 #endif
     }
     coheng = (double *)realloc(coheng, (nconf + 1) * sizeof(double));
@@ -564,9 +566,8 @@ void read_config(char *filename)
 
     /* compute the neighbor table */
     for (i = natoms; i < natoms + count; i++) {
-     //printf("\n nat %d  count %d \n", natoms, count  );
       atoms[i].num_neigh = 0;
-#ifdef CSH 
+#ifdef CSH   /* build independent coulomb neighbors list */
       atoms[i].num_couln = 0;
 #endif
       /* loop over all atoms for threebody interactions */
@@ -592,7 +593,7 @@ void read_config(char *filename)
    
 
 #ifdef CSH 
-             /* neighbor table for coulomb only */
+             /* neighbors table for coulomb interaction only */
 	      if (r <= dp_cut ) {
 	        atoms[i].coulneigh =
 	       	 (neigh_t *)realloc(atoms[i].coulneigh, (atoms[i].num_couln + 1) * sizeof(neigh_t));
@@ -604,7 +605,13 @@ void read_config(char *filename)
 	        atoms[i].coulneigh[k].r2 = r * r;
 	        atoms[i].coulneigh[k].inv_r = 1.0 / r;
 	        atoms[i].coulneigh[k].dist_r = dd;
+		atoms[i].coulneigh[k].dist.x = dd.x * r;
+		atoms[i].coulneigh[k].dist.y = dd.y * r;
+		atoms[i].coulneigh[k].dist.z = dd.z * r;
                        // printf(" %d  %d r %f  type %d \n", i, atoms[i].coulneigh[k].nr , atoms[i].coulneigh[k].r, atoms[i].coulneigh[k].type  );
+		col = (type1 <= type2) ? type1 * ntypes + type2 - ((type1 * (type1 + 1)) / 2)
+		  : type2 * ntypes + type1 - ((type2 * (type2 + 1)) / 2);
+		atoms[i].coulneigh[k].col[0] = col;
               }
 #endif
 
@@ -959,8 +966,123 @@ void read_config(char *filename)
     }				/* first loop over atoms */
 
     /* compute the angular part */
+
+
+#ifdef CSH   /* build full neighbors list */
+
+    for (i = natoms; i < natoms + count; i++) {
+      atoms[i].num_angn = 0;
+      /* loop over all atoms for threebody interactions */
+      for (j = natoms; j < natoms + count; j++) {
+	d.x = atoms[j].pos.x - atoms[i].pos.x;
+	d.y = atoms[j].pos.y - atoms[i].pos.y;
+	d.z = atoms[j].pos.z - atoms[i].pos.z;
+	for (ix = -cell_scale[0]; ix <= cell_scale[0]; ix++) {
+	  for (iy = -cell_scale[1]; iy <= cell_scale[1]; iy++) {
+	    for (iz = -cell_scale[2]; iz <= cell_scale[2]; iz++) {
+	      if ((i == j) && (ix == 0) && (iy == 0) && (iz == 0))
+		continue;
+	      dd.x = d.x + ix * box_x.x + iy * box_y.x + iz * box_z.x;
+	      dd.y = d.y + ix * box_x.y + iy * box_y.y + iz * box_z.y;
+	      dd.z = d.z + ix * box_x.z + iy * box_y.z + iz * box_z.z;
+	      r = sqrt(SPROD(dd, dd));
+	      type1 = atoms[i].type;
+	      type2 = atoms[j].type;
+   
+	      col = paircol + type1 ;
+
+              angularbond = (int) ( apot_table.angbonded[type1] + apot_table.angbonded[type2] );
+
+              //printf("angular cut type %d  cutoff %f   \n", type1, calc_pot.end[col] );
+ 
+	      if (r <= calc_pot.end[col] && angularbond == 2 ) {
+		atoms[i].angneigh =
+		  (neigh_t *)realloc(atoms[i].angneigh, (atoms[i].num_angn + 1) * sizeof(neigh_t));
+		dd.x /= r;
+		dd.y /= r;
+		dd.z /= r;
+		k = atoms[i].num_angn++;
+		init_neigh(atoms[i].angneigh + k);
+		atoms[i].angneigh[k].type = type2;
+		atoms[i].angneigh[k].nr = j;
+		atoms[i].angneigh[k].r = r;
+		atoms[i].angneigh[k].r2 = r * r;
+		atoms[i].angneigh[k].inv_r = 1.0 / r;
+		atoms[i].angneigh[k].dist_r = dd;
+		atoms[i].angneigh[k].dist.x = dd.x * r;
+		atoms[i].angneigh[k].dist.y = dd.y * r;
+		atoms[i].angneigh[k].dist.z = dd.z * r;
+
+             //    printf("type %d %d ang %f  \n", type1, type2, r);
+
+		// pre-compute index and shift into potential table 
+	      }			/* r < r_cut */
+	    }			/* loop over images in z direction */
+	  }			/* loop over images in y direction */
+	}			/* loop over images in x direction */
+      }				/* second loop over atoms (neighbors) */
+
+      reg_for_free(atoms[i].angneigh, "neighbor table atom %d", i);
+    }				/* first loop over atoms */
+
+   /* angular part */
+    for (i = natoms; i < natoms + count; i++) {
+      nnn = atoms[i].num_angn;
+      ijk = 0;
+      atoms[i].angle_part = (angle_t *) malloc(sizeof(angle_t));
+      for (j = 0; j < nnn - 1; j++) {
+	atoms[i].angneigh[j].ijk_start = ijk;
+	for (k = j + 1; k < nnn; k++) {
+	  atoms[i].angle_part = (angle_t *) realloc(atoms[i].angle_part, (ijk + 1) * sizeof(angle_t));
+	  init_angle(atoms[i].angle_part + ijk);
+	  ccos =
+	    atoms[i].angneigh[j].dist_r.x * atoms[i].angneigh[k].dist_r.x +
+	    atoms[i].angneigh[j].dist_r.y * atoms[i].angneigh[k].dist_r.y +
+	    atoms[i].angneigh[j].dist_r.z * atoms[i].angneigh[k].dist_r.z;
+
+	  atoms[i].angle_part[ijk].cos = ccos;
+	  theta = acos(ccos);
+	  atoms[i].angle_part[ijk].theta = theta;
+
+	  col = paircol + atoms[i].type;
+
+	  if (0 == format || 3 == format) {
+	    if ((fabs(theta) - 3.15) > 1e-10) {
+	      printf("%.20f %f %d %d %d\n", theta, calc_pot.begin[col], col, type1, type2);
+	      fflush(stdout);
+	      error(1, "angular cos out of range, it is strange!");
+	    }
+
+	    istep = calc_pot.invstep[col];
+	    slot = (int)(theta * istep);
+	    shift = (theta - slot * calc_pot.step[col]) * istep;
+	    slot += calc_pot.first[col];
+	    step = calc_pot.step[col];
+
+            //printf("type %d %d %d ang %f  \n", atoms[i].angneigh[j].type, atoms[i].type, atoms[i].angneigh[k].type, theta*180/M_PI);
+
+	    /* Don't want lower bound spline knot to be final knot or upper
+	       bound knot will cause trouble since it goes beyond the array */
+	    if (slot >= calc_pot.last[col]) {
+	      slot--;
+	      shift += 1.0;
+	    }
+	  }
+	  atoms[i].angle_part[ijk].shift = shift;
+	  atoms[i].angle_part[ijk].slot = slot;
+	  atoms[i].angle_part[ijk].step = step;
+	  ijk++;
+	}			/* third loop over atoms */
+      }				/* second loop over atoms */
+      atoms[i].num_angles = ijk;
+      reg_for_free(atoms[i].angle_part, "angular part atom %d", i);
+    }				/* first loop over atoms */
+
+#endif  /* CSH */
+
+
     /* For TERSOFF we create a full neighbor list, for all other potentials only a half list */
-#ifdef THREEBODY
+#ifdef THREEBODY //|| defined CSH
     for (i = natoms; i < natoms + count; i++) {
       nnn = atoms[i].num_neigh;
       ijk = 0;
@@ -986,6 +1108,28 @@ void read_config(char *filename)
 	    atoms[i].neigh[j].dist_r.z * atoms[i].neigh[k].dist_r.z;
 
 	  atoms[i].angle_part[ijk].cos = ccos;
+	  atoms[i].angle_part[ijk].theta = acos(ccos);
+	  //atoms[i].angle_part[ijk].cos = acos(ccos)*180/M_PI;
+
+            /*  if ( atoms[i].type = 3 ) {
+
+              
+                   //printf("ix %d  nneig %d cen %d j %d k %d  nang: %d \n", i, atoms[i].num_neigh, atoms[i].type, atoms[j].type, atoms[k].type, atoms[i].num_angles ); 
+                printf("ix %d  nneig %d cen %d j %d k %d  nang: %d ang: %f  eang:%f  eang_cut:    %f \n", i, atoms[i].num_neigh, 
+                       atoms[i].type, atoms[j].type, atoms[k].type , 
+                       atoms[i].num_angles, atoms[i].angle_part[ijk].theta*180/M_PI ,
+                       angle->g, neigh_j->f * neigh_k->f * angle->g 
+                      );
+
+                printf("ixi %d  ixj %d ixk %d  \n", i , j , k );
+
+                printf("ijdist %f  ikdist %f ijcut %f ikcut %f \n", 
+                       neigh_j->r , neigh_k->r , 
+                       neigh_j->f , neigh_k->f ); 
+
+                    // printf(" eang:%f eang_cut: %f \n", angle->g, neigh_j->f * neigh_k->f * angle->g );
+                      
+              } */
 
 	  col = 2 * paircol + 2 * ntypes + atoms[i].type;
 	  if (0 == format || 3 == format) {
@@ -1295,6 +1439,21 @@ void read_config(char *filename)
   }
 #endif /* MEAM */
 
+#ifdef CSH
+  /* update angular function table */
+  /* g takes theta as an argument (acos(cos)), so we need to tabulate it only
+     in the range of [0:Pi]. Actually we use [-0.1:3.2] to be safe. */
+    for (i = 0; i < ntypes; i++) {
+      j = paircol + i;
+      apot_table.begin[j] = -0.1;
+      opt_pot.begin[j] = -0.1;
+      calc_pot.begin[j] = -0.1;
+      apot_table.end[j] = 3.2;
+      opt_pot.end[j] = 3.2;
+      calc_pot.end[j] = 3.2;
+    }
+#endif  /* CSH */
+
   /* recalculate step, invstep and xcoord for new tables */
   for (i = 0; i < calc_pot.ncols; i++) {
     calc_pot.step[i] = (calc_pot.end[i] - calc_pot.begin[i]) / (APOT_STEPS - 1);
@@ -1508,12 +1667,22 @@ void update_slots(void)
     }				/* end loop over all neighbors */
   }				/* end loop over all atoms */
 
-#ifdef THREEBODY
+#if defined THREEBODY || defined CSH
   /* update angular slots */
   for (i = 0; i < natoms; i++) {
     for (j = 0; j < atoms[i].num_angles; j++) {
       rr = atoms[i].angle_part[j].cos + 1.1;
-#ifdef MEAM
+#if defined CSH
+      col = paircol + atoms[i].type;
+      rr = atoms[i].angle_part[j].theta ;
+      atoms[i].angle_part[j].slot = (int)(rr * calc_pot.invstep[col]);
+      atoms[i].angle_part[j].step = calc_pot.step[col];
+      atoms[i].angle_part[j].shift =
+	(rr - atoms[i].angle_part[j].slot * calc_pot.step[col]) * calc_pot.invstep[col];
+      /* move slot to the right potential */
+      atoms[i].angle_part[j].slot += calc_pot.first[col];
+#endif
+#ifdef MEAM 
       col = 2 * paircol + 2 * ntypes + atoms[i].type;
       atoms[i].angle_part[j].slot = (int)(rr * calc_pot.invstep[col]);
       atoms[i].angle_part[j].step = calc_pot.step[col];

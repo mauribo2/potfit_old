@@ -98,6 +98,10 @@
  *  	0 ... pair distance
  *  	1 ... exponential functions
  *
+ *  CSH: 	SLOTS = 2
+ *  	0 ... pair distance
+ *  	1 ... angular function
+ *
  *  TBEAM: 	SLOTS = 3
  *  	0 ... pair distance
  *  	1 ... transfer function
@@ -118,7 +122,7 @@
 
 #define SLOTS 1
 
-#if defined EAM || defined STIWEB
+#if defined EAM || defined STIWEB || defined CSH
 #undef SLOTS
 #define SLOTS 2
 #endif /* EAM || STIWEB */
@@ -167,7 +171,7 @@ EXTERN int num_cpus INIT(1);	/* How many cpus are there */
 #ifdef MPI
 EXTERN MPI_Datatype MPI_ATOM;
 EXTERN MPI_Datatype MPI_NEIGH;
-#ifdef THREEBODY
+#if defined THREEBODY || defined CSH
 EXTERN MPI_Datatype MPI_ANGL;
 #endif
 EXTERN MPI_Datatype MPI_STENS;
@@ -287,7 +291,7 @@ EXTERN int fcalls INIT(0);
 EXTERN int mdim INIT(0);
 EXTERN int ndim INIT(0);
 EXTERN int ndimtot INIT(0);
-EXTERN int paircol INIT(0);	/* How manc columns for pair potential */
+EXTERN int paircol INIT(0);	/* How many columns for pair potential */
 EXTERN double d_eps INIT(1e-6);
 
 /* general variables */

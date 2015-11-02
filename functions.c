@@ -68,6 +68,7 @@ void apot_init(void)
   add_pot(exp_decay, 2);
   add_pot(bjs, 3);
   add_pot(parabola, 3);
+  add_pot(harmonic, 2);
   add_pot(csw, 4);
   add_pot(universal, 4);
   add_pot(const, 1);
@@ -77,9 +78,11 @@ void apot_init(void)
   add_pot(double_morse, 7);
   add_pot(double_exp, 5);
   add_pot(poly_5, 5);
+  add_pot(poly_2, 3);
   add_pot(kawamura, 9);
   add_pot(kawamura_mix, 12);
   add_pot(exp_plus, 3);
+  add_pot(exp_coul, 3);
   add_pot(mishin, 6);
   add_pot(gen_lj, 5);
   add_pot(gljm, 12);
@@ -502,6 +505,27 @@ void parabola_value(double r, double *p, double *f)
 
 /****************************************************************
  *
+ * harmonic potential
+ *
+ ****************************************************************/
+
+void harmonic_value(double r, double *p, double *f)
+{
+  static double angle;
+
+  //angle=acos(r)*180/M_PI;
+  //printf("cos %f  \n", r) ;
+  //angle=acos(r);
+  //printf("ang %f  \n", angle) ;
+
+  angle=r;
+
+  *f = p[0] * (angle - p[1]) * (angle - p[1]);
+}
+
+
+/****************************************************************
+ *
  * chantasiriwan (csw) and milstein potential
  *
  * http://dx.doi.org/doi:10.1103/PhysRevB.53.14080
@@ -638,6 +662,21 @@ void double_exp_value(double r, double *p, double *f)
 
 /****************************************************************
  *
+ * poly 2 potential
+ *
+ ****************************************************************/
+
+void poly_2_value(double r, double *p, double *f)
+{
+  static double dr2;
+
+  dr2 = (r - p[2]) * (r - p[2]);
+
+  *f = p[0] +  p[1] * dr2;
+}
+
+/****************************************************************
+ *
  * poly 5 potential
  *
  * http://dx.doi.org/doi:10.1557/proc-538-535
@@ -691,6 +730,17 @@ void kawamura_mix_value(double r, double *p, double *f)
 void exp_plus_value(double r, double *p, double *f)
 {
   *f = p[0] * exp(-p[1] * r) + p[2];
+}
+
+/****************************************************************
+ *
+ * exp_coul potential
+ *
+ ****************************************************************/
+
+void exp_coul_value(double r, double *p, double *f)
+{
+  *f = p[0] * (1 + p[1]/r) * exp(-p[2] * r );
 }
 
 /****************************************************************
@@ -1264,7 +1314,7 @@ void elstat_shift(double r, double dp_kappa, double *fnval_tail, double *grad_ta
 void elstat_lammps_wolf(double r, double dp_kappa, double *fnval_tail, double *grad_tail)
 {
   static double ftail, gtail, ggtail, ftail_cut, gtail_cut, ggtail_cut;
-  static double erfcc,e_shift,erfcd,e_self;
+  static double erfcc,e_shift,derfc,e_self;
   static double x[4];
 
   x[0] = r * r;
@@ -1275,10 +1325,10 @@ void elstat_lammps_wolf(double r, double dp_kappa, double *fnval_tail, double *g
 
 //  e_shift = erfc(alf*cut_coul)/cut_coul;
 
-  erfcc = erfc(dp_kappa*r)/r;
-  e_shift = erfc(dp_kappa*dp_cut)/dp_cut;
+  erfcc = erfc(dp_kappa * r) / r;
+  e_shift = erfc(dp_kappa * dp_cut) / dp_cut;
 
-  erfcd = exp(-x[0]*x[1]);
+  derfc = exp(-x[0] * x[1]);
 
  //         r = sqrt(rsq);
  //         prefactor = qqrd2e*qtmp*q[j]/r;
@@ -1289,13 +1339,11 @@ void elstat_lammps_wolf(double r, double dp_kappa, double *fnval_tail, double *g
  //         forcecoul = dvdrr*rsq*prefactor;
  //         if (factor_coul < 1.0) forcecoul -= (1.0-factor_coul)*prefactor;
 
-
 //  elstat_value(r, dp_kappa, &ftail, &gtail, &ggtail);
 //  elstat_value(dp_cut, dp_kappa, &ftail_cut, &gtail_cut, &ggtail_cut);
 //  ftail_cut=0 ; gtail_cut=0 ; ggtail_cut=0 ; // to make direct sum
 
-
-  *fnval_tail = (erfcc-e_shift)*dp_eps;
+  *fnval_tail = dp_eps * (erfcc - e_shift);
   *grad_tail = gtail - gtail_cut;
 }
 

@@ -108,6 +108,10 @@ void read_pot_table(pot_table_t *pt, char *filename)
 #endif /* TBEAM */
 #endif /* EAM */
 
+#ifdef CSH
+      npots = paircol + ntypes;
+#endif /* CSH */
+
 #ifdef ADP
       npots = 3 * paircol + 2 * ntypes;
 #endif /* ADP */
@@ -276,8 +280,9 @@ void read_pot_table(pot_table_t *pt, char *filename)
     apt->charge = apt->values[size];
     apt->dp_kappa = apt->values[size + 1];
 #ifdef CSH
-    apt->cweight = apt->values[size + 2];
-#endif /*CORE SHELL weights for coulomb */
+    apt->cweight = (double *)malloc(paircol * sizeof(double));
+    apt->angbonded = (double *)malloc(ntypes * sizeof(double));
+#endif /* CSH */ 
 
 #ifdef DIPOLE
     apt->dp_alpha = apt->values[size + 2];
@@ -420,6 +425,10 @@ void read_pot_table(pot_table_t *pt, char *filename)
     reg_for_free(apt->invar_par[size + i], "apt->invar_par[%d]", size + i);
   }
 #endif /* COULOMB */
+#ifdef CSH
+  reg_for_free(apt->cweight, "apt->cweight");
+  reg_for_free(apt->angbonded, "apt->angbonded");
+#endif /* CSH */
 #ifdef DIPOLE
   reg_for_free(apt->dp_alpha, "apt->dp_alpha");
   reg_for_free(apt->dp_b, "apt->dp_b");
@@ -695,6 +704,41 @@ void read_pot_table0(pot_table_t *pt, apot_table_t *apt, char *filename, FILE *i
 
   printf(" - Read elstat table\n");
 #endif /* DIPOLE */
+
+#ifdef CSH
+  fsetpos(infile, &startpos);
+  /* skip to core shell section */
+  do {
+    fgetpos(infile, &filepos);
+    fscanf(infile, "%s", buffer);
+  } while (strcmp(buffer, "coreshell") != 0 && !feof(infile));
+  /* check for elstat keyword */
+  if (strcmp("coreshell", buffer) != 0) {
+    error(1, "No coreshell option found in %s.\n", filename);
+  }
+
+  /* read coreshell parameters */
+  fscanf(infile, " %s", buffer);
+  if (strcmp("coulweight", buffer) != 0) {
+    error(1, "Could not read angular coulomb weights parameter for core shell pairs");
+  }
+  for (i = 0; i < paircol; i++) {
+    if (1 > fscanf(infile, "%lf", &apt->cweight[i])) {
+      error(1, "Could not read coulweight for pair #%d\n", i);
+    }
+  }
+
+  fscanf(infile, " %s", buffer);
+  if (strcmp("angbonded", buffer) != 0) {
+    error(1, "Could not read angular bonded true/false parameter");
+  }
+  for (i = 0; i < ntypes; i++) {
+    if (1 > fscanf(infile, "%lf", &apt->angbonded[i])) {
+      error(1, "Could not read angbonded for atomtype #%d\n", i);
+    }
+  }
+#endif /* CSH */
+
 
   /* skip to global section */
   fsetpos(infile, &startpos);
@@ -1239,6 +1283,7 @@ void read_pot_table0(pot_table_t *pt, apot_table_t *apt, char *filename, FILE *i
   check_apot_functions();
 
   init_calc_table(pt, &calc_pot);
+
 
   return;
 }

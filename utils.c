@@ -187,7 +187,7 @@ void init_atom(atom_t *atom)
   atom->E_tot.z = 0.0;
 #endif /* DIPOLE */
 
-#ifdef THREEBODY
+#if defined THREEBODY || defined CSH
   atom->num_angles = 0;
 #ifdef MEAM
   atom->rho_eam = 0.0;
@@ -195,7 +195,7 @@ void init_atom(atom_t *atom)
 #endif /* MANYBODY */
 
   atom->neigh = NULL;
-#ifdef THREEBODY
+#if defined THREEBODY || defined CSH
   atom->angle_part = NULL;
 #endif /* THREEBODY */
 }
@@ -241,7 +241,7 @@ void init_neigh(neigh_t *neigh)
   neigh->ggrad_el = 0.0;
 #endif /* COULOMB */
 
-#ifdef THREEBODY
+#if defined THREEBODY || defined CSH
   neigh->f = 0.0;
   neigh->df = 0.0;
   neigh->ijk_start = 0;
@@ -258,12 +258,12 @@ void init_neigh(neigh_t *neigh)
 #endif /* TERSOFF */
 }
 
-#ifdef THREEBODY
+#if defined THREEBODY || defined CSH
 void init_angle(angle_t * angle)
 {
   angle->cos = 0.0;
 
-#ifdef MEAM
+#if defined MEAM || defined CSH
   angle->slot = 0;
   angle->shift = 0.0;
   angle->step = 0.0;

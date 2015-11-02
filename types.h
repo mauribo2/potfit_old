@@ -79,7 +79,7 @@ typedef struct {
   double ggrad_el;		/* stores tail of second derivative of electrostatic potential */
 #endif
 
-#ifdef THREEBODY
+#if defined THREEBODY || defined CSH
   double f;			/* value of the cutoff function f_c */
   double df;			/* derivative of the cutoff function f_c */
   int   ijk_start;		/* index of the first entry for angular part */
@@ -94,10 +94,11 @@ typedef struct {
 #endif
 } neigh_t;
 
-#ifdef THREEBODY
+#if defined THREEBODY || defined CSH
 typedef struct {
   double cos;
-#ifdef MEAM
+  double theta;
+#if defined MEAM || defined CSH
   int   slot;
   double shift;
   double step;
@@ -106,6 +107,7 @@ typedef struct {
 #endif
 } angle_t;
 #endif
+
 
 #ifdef STIWEB
 /* pointers to access Stillinger-Weber parameters directly */
@@ -215,6 +217,10 @@ typedef struct {
 #ifdef CSH
   neigh_t *coulneigh;		/* neighbors for coulomb interaction */
   int   num_couln;               /* number of coulomb neighbors */
+  neigh_t *angneigh;		/* neighbors for angular contribution */
+  int   num_angn;               /* number of neighbors for angles */
+  angle_t *angle_part;		/* dynamic array for angular neighbors */
+  int   num_angles;
 #endif
 
   neigh_t *neigh;		/* dynamic array for neighbors */
@@ -288,7 +294,8 @@ typedef struct {
 #endif
 
 #ifdef CSH
-  double *cweight;              /* coulomb weights for each pair */
+  double *cweight;                 /* coulomb true or false for each pair */
+  double *angbonded;               /* definition for each type if can be part of angular bond */
 #endif
 
 #ifdef STIWEB

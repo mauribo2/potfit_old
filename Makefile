@@ -439,7 +439,7 @@ endif
 
 ifneq (,$(strip $(findstring eam,${MAKETARGET})))
   ifneq (,$(strip $(findstring meam,${MAKETARGET})))
-    POTFITSRC      += force_meam.c
+    POTFITSRC      += force_meam_test.c
   else ifneq (,$(strip $(findstring coulomb,${MAKETARGET})))
     POTFITSRC      += force_eam_elstat.c
   else ifneq (,$(strip $(findstring dipole,${MAKETARGET})))

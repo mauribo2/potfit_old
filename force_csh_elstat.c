@@ -97,6 +97,10 @@ double calc_forces(double *xi_opt, double *forces, int flag)
   double sum_charges;
   double dp_kappa;
 
+  angle_t *angle;
+
+  printf(" \n \n potlen %d ncol %d step %f\n \n ", calc_pot.len,  calc_pot.ncols, calc_pot.step );
+
   switch (format) {
       case 0:
 	xi = calc_pot.table;
@@ -185,14 +189,22 @@ double calc_forces(double *xi_opt, double *forces, int flag)
     {
       int   self;
       vector tmp_force;
-      int   h, j, type1, type2, uf;
+      int   h, j, k, type1, type2, uf;
 #ifdef STRESS
       int   us, stresses;
 #endif /* STRESS */
       int   n_i, n_j;
       double fnval, grad, fnval_tail, grad_tail, grad_i, grad_j;
       atom_t *atom;
-      neigh_t *neigh;
+      neigh_t *neigh, *neigh_j, *neigh_k;
+      double angener;
+      int   ijk;
+
+      //printf( " col " ); 
+      //for (i = 0; i < paircol ; i++) {
+      //        printf( " %d " , (int) (apot_table.cweight[i]) ); 
+      //}
+      //        printf( " \n");
 
       /* loop over configurations: M A I N LOOP CONTAINING ALL ATOM-LOOPS */
       for (h = firstconf; h < firstconf + myconf; h++) {
@@ -295,7 +307,7 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 	    type2 = neigh->type;
 	    col = neigh->col[0];
 
-/* updating tail-functions - only necessary with variing kappa */
+            /* updating tail-functions - only necessary with variing kappa */
 	    if (!apt->sw_kappa)
 	      elstat_lammps_wolf(neigh->r, dp_kappa, &neigh->fnval_el, &neigh->grad_el );
 
@@ -317,8 +329,10 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 	      fnval = charge[type1] * charge[type2] * fnval_tail;
 	      grad = charge[type1] * grad_i;
 
-              /* check if pair are a Core-Shell one */
-              if ( type1==0 && type2==4 || type1==2 && type2==5 ) {
+              /* check if pair is a core-shell one */
+              // if ( type1==0 && type2==4 || type1==2 && type2==5 ) {
+              if ( (int) (apot_table.cweight[col]) == 0 ) {
+        //         printf("types null %d  %d \n", type1, type2 ); 
                  if (neigh->r <= rcut[type1 * ntypes + type2]) {   /* suppress coulomb contribution from the pair */
                      fnval -= dp_eps * charge[type1] * charge[type2] / atoms[i].coulneigh[j].r;
                      grad=0;
@@ -384,6 +398,65 @@ double calc_forces(double *xi_opt, double *forces, int flag)
              //    printf("self ener: %d  %f  shif: %f kpp: %f  pi: %f \n", i, fnval, e_shift, dp_kappa, M_PI);
      
           }
+
+
+	/* FIFTH LOOP: Calculate angular forces and energies */
+        for (i = 0; i < inconf[h]; i++) {	/* atoms */
+	  /* Set pointer to temp atom pointer */
+	  atom = conf_atoms + i + cnfstart[h] - firstatom;
+	  type1 = atom->type;
+	  /* Skip every 3 spots for force array */
+	  n_i = 3 * (cnfstart[h] + i);
+	  //col = paircol + type1;
+
+	  /* Find the correct column in the potential table for angle part: g_ijk
+	     Binary Alloy: 0 = g_A, 1 = g_B
+	     where A, B are atom type for the main atom i
+	     Note: it is now "2*paircol+2*ntypes" from beginning column
+	     to account for phi(paircol)+rho(nytpes)+F(ntypes)+f(paircol)
+	     col2 = 2 * paircol + 2 * ntypes + typ1; */
+
+	  /* Loop over every angle formed by neighbors
+	     N(N-1)/2 possible combinations
+	     Used in computing angular part g_ijk */
+
+	  /* set angl pointer to angl_part of current atom */
+	  angle = atom->angle_part;
+
+	  /* Loop over angles */
+	  ijk = 0;
+	  for (j = 0; j < atom->num_angn - 1; j++) {
+
+	    /* Get pointer to neighbor j */
+	    neigh_j = atom->angneigh + j;
+
+	    for (k = j + 1; k < atom->num_angn; k++) {
+
+	      /* Get pointer to neighbor kk */
+	      neigh_k = atom->angneigh + k;
+
+	      angle->g = splint_comb_dir(&calc_pot, xi, angle->slot, angle->shift, angle->step, &angle->dg);
+
+	      angener += angle->g;
+
+                /*printf("ix %d  nneig %d cen %d j %d k %d  nang: %d ang: %f  eang:%f  eang_cut:    %f \n", i, atoms[i].num_neigh, 
+                       atoms[i].type, atoms[i].neigh[j].type, atoms[i].neigh[k].type , 
+                       atoms[i].num_angles, atoms[i].angle_part[ijk].theta*180/M_PI ,
+                       angle->g, neigh_j->f * neigh_k->f * angle->g 
+                      ); */
+
+                printf(" @#@  %d   %d  %d    %f  %f  \n", neigh_j->nr+1, i+1 , neigh_k->nr+1, angle->theta*180/M_PI , angle->g );
+
+                    // printf(" eang:%f eang_cut: %f \n", angle->g, neigh_j->f * neigh_k->f * angle->g );
+              } /* k loop */
+
+	      ijk++;
+	      /* Increase angl pointer */
+	      angle++;
+	    }  /* j loop */
+            printf(" @# angener %d  %f  \n", type1, angener );
+	  }  /*  i loop */
+
 
 	  /* sum-up: whole force contributions flow into tmpsum */
 	  if (uf) {

@@ -82,7 +82,7 @@ void broadcast_params()
   MPI_Aint displs[MAX_MPI_COMPONENTS];
   MPI_Datatype typen[MAX_MPI_COMPONENTS];
   neigh_t testneigh;
-#ifdef THREEBODY
+#if defined THREEBODY || defined CSH
   angle_t testangl;
 #endif /* THREEBODY */
   atom_t testatom;
@@ -128,7 +128,7 @@ void broadcast_params()
   blklens[size] = 1;        	typen[size++] = MPI_DOUBLE;     /* grad_el */
   blklens[size] = 1;        	typen[size++] = MPI_DOUBLE;     /* ggrad_el */
 #endif /* COULOMB */
-#ifdef THREEBODY
+#if defined THREEBODY || defined CSH
   blklens[size] = 1;         	typen[size++] = MPI_DOUBLE;     /* f */
   blklens[size] = 1;        	typen[size++] = MPI_DOUBLE;     /* df */
   blklens[size] = 1;        	typen[size++] = MPI_INT;     	/* ijk_start */
@@ -164,7 +164,7 @@ void broadcast_params()
   MPI_Address(&testneigh.grad_el, 	&displs[count++]);
   MPI_Address(&testneigh.ggrad_el, 	&displs[count++]);
 #endif /* COULOMB */
-#ifdef THREEBODY
+#if defined THREEBODY || defined CSH
   MPI_Address(&testneigh.f, 		&displs[count++]);
   MPI_Address(&testneigh.df, 		&displs[count++]);
   MPI_Address(&testneigh.ijk_start, 	&displs[count++]);
@@ -187,12 +187,12 @@ void broadcast_params()
   MPI_Type_create_struct(size, blklens, displs, typen, &MPI_NEIGH);
   MPI_Type_commit(&MPI_NEIGH);
 
-#ifdef THREEBODY
+#if defined THREEBODY || defined CSH
   /* MPI_ANGL */
   /* *INDENT-OFF* */
   size = 0;
   blklens[size] = 1; 		typen[size++] = MPI_DOUBLE;    	/* cos */
-#ifdef MEAM
+#if defined MEAM || defined CSH
   blklens[size] = 1;         	typen[size++] = MPI_INT;     	/* slot */
   blklens[size] = 1;         	typen[size++] = MPI_DOUBLE;    	/* shift */
   blklens[size] = 1;         	typen[size++] = MPI_DOUBLE;    	/* step */
@@ -202,7 +202,7 @@ void broadcast_params()
 
   count = 0;
   MPI_Address(&testangl.cos, 		&displs[count++]);
-#ifdef MEAM
+#if defined MEAM  || defined CSH
   MPI_Address(&testangl.slot, 		&displs[count++]);
   MPI_Address(&testangl.shift, 		&displs[count++]);
   MPI_Address(&testangl.step, 		&displs[count++]);
@@ -250,7 +250,7 @@ void broadcast_params()
   blklens[size] = 1;        	typen[size++] = MPI_VECTOR;   	/* E_old */
   blklens[size] = 1;        	typen[size++] = MPI_VECTOR;   	/* E_tot */
 #endif /* DIPOLE */
-#ifdef THREEBODY
+#if defined THREEBODY || defined CSH
   blklens[size] = 1;         	typen[size++] = MPI_INT;    	/* num_angl */
 #ifdef MEAM
   blklens[size] = 1;         	typen[size++] = MPI_DOUBLE;    	/* rho_eam */
@@ -287,7 +287,7 @@ void broadcast_params()
   MPI_Address(&testatom.E_old, 		&displs[count++]);
   MPI_Address(&testatom.E_tot, 		&displs[count++]);
 #endif /* DIPOLE */
-#ifdef THREEBODY
+#if defined THREEBODY || defined CSH
   MPI_Address(&testatom.num_angles, 	&displs[count++]);
 #ifdef MEAM
   MPI_Address(&testatom.rho_eam,	&displs[count++]);
@@ -510,7 +510,7 @@ void broadcast_params()
     }
   }
   broadcast_neighbors();
-#ifdef THREEBODY
+#if defined THREEBODY || defined CSH
   broadcast_angles();
 #endif /* THREEBODY */
   conf_vol = (double *)malloc(myconf * sizeof(double));
@@ -568,7 +568,7 @@ void broadcast_neighbors()
   }
 }
 
-#ifdef THREEBODY
+#if defined THREEBODY || defined CSH
 
 /***************************************************************************
  *
