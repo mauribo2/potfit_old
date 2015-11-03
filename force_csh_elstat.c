@@ -97,9 +97,11 @@ double calc_forces(double *xi_opt, double *forces, int flag)
   double sum_charges;
   double dp_kappa;
 
+  double ccos;
+
   angle_t *angle;
 
-  printf(" \n \n potlen %d ncol %d step %f\n \n ", calc_pot.len,  calc_pot.ncols, calc_pot.step );
+  //printf(" \n \n potlen %d ncol %d step %f\n \n ", calc_pot.len,  calc_pot.ncols, calc_pot.step );
 
   switch (format) {
       case 0:
@@ -330,7 +332,7 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 	      grad = charge[type1] * grad_i;
 
               /* check if pair is a core-shell one */
-              // if ( type1==0 && type2==4 || type1==2 && type2==5 ) {
+              // if ( type1==0 && type2==4 || type1==2 && type2==5 ) 
               if ( (int) (apot_table.cweight[col]) == 0 ) {
         //         printf("types null %d  %d \n", type1, type2 ); 
                  if (neigh->r <= rcut[type1 * ntypes + type2]) {   /* suppress coulomb contribution from the pair */
@@ -398,9 +400,10 @@ double calc_forces(double *xi_opt, double *forces, int flag)
              //    printf("self ener: %d  %f  shif: %f kpp: %f  pi: %f \n", i, fnval, e_shift, dp_kappa, M_PI);
      
           }
+         }
+	 
 
-
-	/* FIFTH LOOP: Calculate angular forces and energies */
+	/* F I F T H  LOOP: Calculate angular forces and energies */
         for (i = 0; i < inconf[h]; i++) {	/* atoms */
 	  /* Set pointer to temp atom pointer */
 	  atom = conf_atoms + i + cnfstart[h] - firstatom;
@@ -410,11 +413,7 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 	  //col = paircol + type1;
 
 	  /* Find the correct column in the potential table for angle part: g_ijk
-	     Binary Alloy: 0 = g_A, 1 = g_B
-	     where A, B are atom type for the main atom i
-	     Note: it is now "2*paircol+2*ntypes" from beginning column
-	     to account for phi(paircol)+rho(nytpes)+F(ntypes)+f(paircol)
-	     col2 = 2 * paircol + 2 * ntypes + typ1; */
+	     col2 = paircol + + typ1; */
 
 	  /* Loop over every angle formed by neighbors
 	     N(N-1)/2 possible combinations
@@ -437,43 +436,23 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 
 	      angle->g = splint_comb_dir(&calc_pot, xi, angle->slot, angle->shift, angle->step, &angle->dg);
 
-	      angener += angle->g;
+	      
+//              printf(" @#@  %f slo shif ste %d  %f  %f  \n", calc_pot.begin[ paircol + type1], angle->slot, angle->shift, angle->step );
+//              printf(" @#@  %d  %d  %d    %f  %f  %f  \n", neigh_j->nr+1, i+1 , neigh_k->nr+1, angle->theta*180/M_PI, angle->theta , angle->g );
 
-                /*printf("ix %d  nneig %d cen %d j %d k %d  nang: %d ang: %f  eang:%f  eang_cut:    %f \n", i, atoms[i].num_neigh, 
-                       atoms[i].type, atoms[i].neigh[j].type, atoms[i].neigh[k].type , 
-                       atoms[i].num_angles, atoms[i].angle_part[ijk].theta*180/M_PI ,
-                       angle->g, neigh_j->f * neigh_k->f * angle->g 
-                      ); */
+//	      angener += angle->g;
+	      forces[energy_p + h] += angle->g ;
 
-                printf(" @#@  %d   %d  %d    %f  %f  \n", neigh_j->nr+1, i+1 , neigh_k->nr+1, angle->theta*180/M_PI , angle->g );
 
-                    // printf(" eang:%f eang_cut: %f \n", angle->g, neigh_j->f * neigh_k->f * angle->g );
-              } /* k loop */
-
-	      ijk++;
 	      /* Increase angl pointer */
+	      ijk++;
 	      angle++;
-	    }  /* j loop */
-            printf(" @# angener %d  %f  \n", type1, angener );
-	  }  /*  i loop */
+            } /* k loop */
 
+	  }  /* j loop */
+	}  /* end F I F T H loop over atoms */
 
-	  /* sum-up: whole force contributions flow into tmpsum */
-	  if (uf) {
-#ifdef FWEIGHT
-	    /* Weigh by absolute value of force */
-	    forces[n_i + 0] /= FORCE_EPS + atom->absforce;
-	    forces[n_i + 1] /= FORCE_EPS + atom->absforce;
-	    forces[n_i + 2] /= FORCE_EPS + atom->absforce;
-#endif /* FWEIGHT */
-#ifdef CONTRIB
-	    if (atom->contrib)
-#endif /* CONTRIB */
-	      tmpsum +=
-		conf_weight[h] * (dsquare(forces[n_i + 0]) + dsquare(forces[n_i + 1]) + dsquare(forces[n_i +
-		    2]));
-	  }
-        }			/* end F O U R T H loop over atoms */
+//        printf(" @# angener %d  %f  \n", type1, angener );
 
 
         /* whole energy contributions flow into tmpsum */

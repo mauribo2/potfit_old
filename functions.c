@@ -511,16 +511,8 @@ void parabola_value(double r, double *p, double *f)
 
 void harmonic_value(double r, double *p, double *f)
 {
-  static double angle;
 
-  //angle=acos(r)*180/M_PI;
-  //printf("cos %f  \n", r) ;
-  //angle=acos(r);
-  //printf("ang %f  \n", angle) ;
-
-  angle=r;
-
-  *f = p[0] * (angle - p[1]) * (angle - p[1]);
+  *f = p[0] * (r - p[1]) * (r - p[1]);
 }
 
 

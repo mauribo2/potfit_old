@@ -1013,8 +1013,6 @@ void read_config(char *filename)
 		atoms[i].angneigh[k].dist.y = dd.y * r;
 		atoms[i].angneigh[k].dist.z = dd.z * r;
 
-             //    printf("type %d %d ang %f  \n", type1, type2, r);
-
 		// pre-compute index and shift into potential table 
 	      }			/* r < r_cut */
 	    }			/* loop over images in z direction */
@@ -1039,6 +1037,7 @@ void read_config(char *filename)
 	    atoms[i].angneigh[j].dist_r.x * atoms[i].angneigh[k].dist_r.x +
 	    atoms[i].angneigh[j].dist_r.y * atoms[i].angneigh[k].dist_r.y +
 	    atoms[i].angneigh[j].dist_r.z * atoms[i].angneigh[k].dist_r.z;
+
 
 	  atoms[i].angle_part[ijk].cos = ccos;
 	  theta = acos(ccos);
