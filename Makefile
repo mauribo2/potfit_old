@@ -579,7 +579,8 @@ ifneq (,$(strip $(findstring csh,${MAKETARGET})))
   ifeq (,$(strip $(findstring apot,${MAKETARGET})))
     ERROR += CSH does not support tabulated potentials
   endif
-  CFLAGS  += -DCSH
+  ##CFLAGS  += -DCSH
+  CFLAGS  += -DCSH -DCSHDEBUG
 endif
 
 

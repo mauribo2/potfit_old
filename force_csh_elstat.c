@@ -199,14 +199,15 @@ double calc_forces(double *xi_opt, double *forces, int flag)
       double fnval, grad, fnval_tail, grad_tail, grad_i, grad_j;
       atom_t *atom;
       neigh_t *neigh, *neigh_j, *neigh_k;
-      double angener;
       int   ijk;
 
-      //printf( " col " ); 
-      //for (i = 0; i < paircol ; i++) {
-      //        printf( " %d " , (int) (apot_table.cweight[i]) ); 
-      //}
-      //        printf( " \n");
+#ifdef CSHDEBUG
+      double coulener, csener, vdwener, angener;
+
+      printf("Debug information for Core-Shell potential: \n");
+      printf("Config   Ecoul    Evdw     Ecs     Eang \n") ;
+#endif /* CSHDEBUG */
+
 
       /* loop over configurations: M A I N LOOP CONTAINING ALL ATOM-LOOPS */
       for (h = firstconf; h < firstconf + myconf; h++) {
@@ -216,6 +217,12 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 #endif /* STRESS */
 	/* reset energies and stresses */
 	forces[energy_p + h] = 0.0;
+#ifdef CSHDEBUG
+        coulener = 0.0;
+	vdwener = 0.0;
+	angener = 0.0;
+	csener = 0.0;
+#endif /* CSHDEBUG */
 #ifdef STRESS
 	stresses = stress_p + 6 * h;
 	for (i = 0; i < 6; i++)
@@ -267,6 +274,16 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 	      }
               //printf("ener_sum: %f  val: %f \n", forces[energy_p + h], fnval );
 	      forces[energy_p + h] += fnval;
+#ifdef CSHDEBUG
+              vdwener += fnval;
+	      /* add CS energies separated */
+              if ( (int) (apot_table.cweight[col]) == 0 ) {
+                 if (neigh->r <= rcut[type1 * ntypes + type2]) {   /* suppress coulomb contribution from the pair */
+                    vdwener -= fnval ;
+		    csener +=fnval ;
+                 }
+              }
+#endif /* CSHDEBUG */
 
 	      if (uf) {
 		tmp_force.x = neigh->dist_r.x * grad;
@@ -350,6 +367,9 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 	      }
 
 	      forces[energy_p + h] += fnval ;
+#ifdef CSHDEBUG
+              coulener += fnval;
+#endif /* CSHDEBUG */
 
               //printf("ener_sum: %f  val: %f \n\n", forces[energy_p + h], fnval );
 
@@ -397,6 +417,9 @@ double calc_forces(double *xi_opt, double *forces, int flag)
      	    qq = charge[type1] * charge[type1];
      	    fnval = dp_eps * qq * (dp_kappa / sqrt(M_PI) + 0.5*e_shift );
      	    forces[energy_p + h] -= fnval;
+#ifdef CSHDEBUG
+	    coulener -= fnval;
+#endif /* CSHDEBUG */
              //    printf("self ener: %d  %f  shif: %f kpp: %f  pi: %f \n", i, fnval, e_shift, dp_kappa, M_PI);
      
           }
@@ -415,9 +438,8 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 	  /* Find the correct column in the potential table for angle part: g_ijk
 	     col2 = paircol + + typ1; */
 
-	  /* Loop over every angle formed by neighbors
-	     N(N-1)/2 possible combinations
-	     Used in computing angular part g_ijk */
+	  /* Loop over every angle formed by angular neighbors
+	     N(N-1)/2 possible combinations */
 
 	  /* set angl pointer to angl_part of current atom */
 	  angle = atom->angle_part;
@@ -436,13 +458,14 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 
 	      angle->g = splint_comb_dir(&calc_pot, xi, angle->slot, angle->shift, angle->step, &angle->dg);
 
+	      forces[energy_p + h] += angle->g ;
 	      
 //              printf(" @#@  %f slo shif ste %d  %f  %f  \n", calc_pot.begin[ paircol + type1], angle->slot, angle->shift, angle->step );
 //              printf(" @#@  %d  %d  %d    %f  %f  %f  \n", neigh_j->nr+1, i+1 , neigh_k->nr+1, angle->theta*180/M_PI, angle->theta , angle->g );
 
-//	      angener += angle->g;
-	      forces[energy_p + h] += angle->g ;
-
+#ifdef CSHDEBUG
+	      angener += angle->g;
+#endif /* CSHDEBUG */
 
 	      /* Increase angl pointer */
 	      ijk++;
@@ -452,7 +475,10 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 	  }  /* j loop */
 	}  /* end F I F T H loop over atoms */
 
-//        printf(" @# angener %d  %f  \n", type1, angener );
+#ifdef CSHDEBUG
+        printf("%d    %f   %f  %f   %f  \n", h, coulener, vdwener, csener, angener );
+#endif /* CSHDEBUG */
+
 
 
         /* whole energy contributions flow into tmpsum */
@@ -472,6 +498,10 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 #endif /* STRESS */
       }				/* end M A I N loop over configurations */
     }				/* parallel region */
+
+#ifdef CSHDEBUG
+      printf("end debug for Core-Shell...\n");
+#endif /* CSHDEBUG */
 
     /* dummy constraints (global) */
 #ifdef APOT
