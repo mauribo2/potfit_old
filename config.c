@@ -159,7 +159,7 @@ void read_config(char *filename)
       reg_for_free(atoms[natoms + i].neigh, "test neigh");
 #ifdef CSH 
       atoms[natoms + i].coulneigh = (neigh_t *)malloc(sizeof(neigh_t));
-      reg_for_free(atoms[natoms + i].coulneigh, "coulomb neigh");
+      // reg_for_free(atoms[natoms + i].coulneigh, "coulomb neigh");
 #endif
     }
     coheng = (double *)realloc(coheng, (nconf + 1) * sizeof(double));
@@ -605,9 +605,9 @@ void read_config(char *filename)
 	        atoms[i].coulneigh[k].r2 = r * r;
 	        atoms[i].coulneigh[k].inv_r = 1.0 / r;
 	        atoms[i].coulneigh[k].dist_r = dd;
-		atoms[i].coulneigh[k].dist.x = dd.x * r;
-		atoms[i].coulneigh[k].dist.y = dd.y * r;
-		atoms[i].coulneigh[k].dist.z = dd.z * r;
+		atoms[i].coulneigh[k].dist.x = dd.x ;
+		atoms[i].coulneigh[k].dist.y = dd.y ;
+		atoms[i].coulneigh[k].dist.z = dd.z ;
                        // printf(" %d  %d r %f  type %d \n", i, atoms[i].coulneigh[k].nr , atoms[i].coulneigh[k].r, atoms[i].coulneigh[k].type  );
 		col = (type1 <= type2) ? type1 * ntypes + type2 - ((type1 * (type1 + 1)) / 2)
 		  : type2 * ntypes + type1 - ((type2 * (type2 + 1)) / 2);
@@ -963,6 +963,9 @@ void read_config(char *filename)
       }				/* second loop over atoms (neighbors) */
 
       reg_for_free(atoms[i].neigh, "neighbor table atom %d", i);
+#ifdef CSH 
+      reg_for_free(atoms[i].coulneigh, "coulomb neighbor table atom %d", i);
+#endif
     }				/* first loop over atoms */
 
     /* compute the angular part */
