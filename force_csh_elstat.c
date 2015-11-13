@@ -201,6 +201,7 @@ double calc_forces(double *xi_opt, double *forces, int flag)
       neigh_t *neigh, *neigh_j, *neigh_k;
       int   ijk;
 
+
 #ifdef CSHDEBUG
       double coulener, csener, vdwener, angener;
 
@@ -228,6 +229,14 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 	for (i = 0; i < 6; i++)
 	  forces[stresses + i] = 0.0;
 #endif /* STRESS */
+
+//#ifdef CSHDEBUG
+//      printf("charges \n");
+//    for (i = 0; i < ntypes - 1; i++) {
+//      printf("%d %f   ",i, charge[i] );
+//    }
+//      printf(" \n");
+//#endif /* CSHDEBUG */
 
 	/* F I R S T LOOP OVER ATOMS: reset forces, dipoles */
 	for (i = 0; i < inconf[h]; i++) {	/* atoms */
@@ -278,7 +287,7 @@ double calc_forces(double *xi_opt, double *forces, int flag)
               vdwener += fnval;
 	      /* add CS energies separated */
               if ( (int) (apot_table.cweight[col]) == 0 ) {
-                 if (neigh->r <= rcut[type1 * ntypes + type2]) {   /* suppress coulomb contribution from the pair */
+                 if (neigh->r <= rcut[type1 * ntypes + type2]) {   /* suppress core shell energy from buck */
                     vdwener -= fnval ;
 		    csener +=fnval ;
                  }
@@ -314,6 +323,7 @@ double calc_forces(double *xi_opt, double *forces, int flag)
           }   /* j loop */
         }  /* i loop */
 
+
         /* T H I R D loop: calculate short-range and monopole forces,
 	   calculate static field- and dipole-contributions */
         for (i = 0; i < inconf[h]; i++) {	/* atoms */
@@ -325,6 +335,8 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 	    neigh = atom->coulneigh + j;
 	    type2 = neigh->type;
 	    col = neigh->col[0];
+
+
 
             /* updating tail-functions - only necessary with variing kappa */
 	    if (!apt->sw_kappa)
@@ -349,11 +361,9 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 	      grad = charge[type1] * grad_i;
 
               /* check if pair is a core-shell one */
-              // if ( type1==0 && type2==4 || type1==2 && type2==5 ) 
               if ( (int) (apot_table.cweight[col]) == 0 ) {
-        //         printf("types null %d  %d \n", type1, type2 ); 
                  if (neigh->r <= rcut[type1 * ntypes + type2]) {   /* suppress coulomb contribution from the pair */
-                     fnval -= dp_eps * charge[type1] * charge[type2] / atoms[i].coulneigh[j].r;
+                     fnval -= dp_eps * charge[type1] * charge[type2] / neigh->r;
                      grad=0;
                  }
               }
