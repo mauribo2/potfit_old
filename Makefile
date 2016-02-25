@@ -439,7 +439,7 @@ endif
 
 ifneq (,$(strip $(findstring eam,${MAKETARGET})))
   ifneq (,$(strip $(findstring meam,${MAKETARGET})))
-    POTFITSRC      += force_meam_test.c
+    POTFITSRC      += force_meam.c
   else ifneq (,$(strip $(findstring coulomb,${MAKETARGET})))
     POTFITSRC      += force_eam_elstat.c
   else ifneq (,$(strip $(findstring dipole,${MAKETARGET})))
@@ -579,8 +579,8 @@ ifneq (,$(strip $(findstring csh,${MAKETARGET})))
   ifeq (,$(strip $(findstring apot,${MAKETARGET})))
     ERROR += CSH does not support tabulated potentials
   endif
-  ##CFLAGS  += -DCSH
-  CFLAGS  += -DCSH -DCSHDEBUG
+  CFLAGS  += -DCSH
+  ##CFLAGS  += -DCSH -DCSHDEBUG
 endif
 
 
@@ -721,9 +721,6 @@ potfit:
 # How to compile *.c files
 # special rules for force computation
 powell_lsq.o: powell_lsq.c
-	@echo -e "CC ${CC}"
-	@echo -e "CFLAGS ${CFLAGS}"
-	@echo -e "LIBS ${LIBS}"
 	@echo " [CC] powell_lsq.c"
 	@${CC} ${CFLAGS} ${CINCLUDE} -c $< || { \
 		echo -e "The following command failed with the above error:\n"; \
@@ -759,6 +756,7 @@ endif
 # How to link
 ${MAKETARGET}: ${OBJECTS}
 	@echo " [LD] $@"
+	@echo -e "\nCompiled with CC=${CC} \nCFLAGS=${CFLAGS} \nLIBS=${LIBS}\n"
 ifeq (,${BIN_DIR})
 	@${CC} ${LFLAGS_${PARALLEL}} -o $@ ${OBJECTS} ${LIBS}
 else
