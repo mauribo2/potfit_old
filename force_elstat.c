@@ -266,99 +266,25 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 	  }
 	}			/* end F I R S T LOOP */
 
-
-	/* F I R S T - H A L F loop: calculate short-range forces if using a core-shell model */
-
-#ifdef CSH
-	for (i = 0; i < inconf[h]; i++) {	/* atoms */
-	  atom = conf_atoms + i + cnfstart[h] - firstatom;
-	  type1 = atom->type;
-	  n_i = 3 * (cnfstart[h] + i);
-	  for (j = 0; j < atom->num_neigh; j++) {	/* short-range neighbors */
-	    neigh = atom->neigh + j;
-	    type2 = neigh->type;
-	    col = neigh->col[0];
-
-	    /* In small cells, an atom might interact with itself */
-	    self = (neigh->nr == i + cnfstart[h]) ? 1 : 0;
-	    /* calculate short-range forces if not using core-shell model*/
-	    if (neigh->r < calc_pot.end[col]) {
-
-	      if (uf) {
-		fnval =
-		  splint_comb_dir(&calc_pot, xi, neigh->slot[0], neigh->shift[0], neigh->step[0], &grad);
-	      } else {
-		fnval = splint_dir(&calc_pot, xi, neigh->slot[0], neigh->shift[0], neigh->step[0]);
-	      }
-	      /* avoid double counting if atom is interacting with a
-	         copy of itself */
-	      if (self) {
-		fnval *= 0.5;
-		grad *= 0.5;
-	      }
-              //printf("ener_sum: %f  val: %f \n", forces[energy_p + h], fnval );
-	      forces[energy_p + h] += fnval;
-
-	      if (uf) {
-		tmp_force.x = neigh->dist_r.x * grad;
-		tmp_force.y = neigh->dist_r.y * grad;
-		tmp_force.z = neigh->dist_r.z * grad;
-		forces[n_i + 0] += tmp_force.x;
-		forces[n_i + 1] += tmp_force.y;
-		forces[n_i + 2] += tmp_force.z;
-		/* actio = reactio */
-		n_j = 3 * neigh->nr;
-		forces[n_j + 0] -= tmp_force.x;
-		forces[n_j + 1] -= tmp_force.y;
-		forces[n_j + 2] -= tmp_force.z;
-
-#ifdef STRESS
-		/* calculate pair stresses */
-		if (us) {
-		  forces[stresses + 0] -= neigh->dist.x * tmp_force.x;
-		  forces[stresses + 1] -= neigh->dist.y * tmp_force.y;
-		  forces[stresses + 2] -= neigh->dist.z * tmp_force.z;
-		  forces[stresses + 3] -= neigh->dist.x * tmp_force.y;
-		  forces[stresses + 4] -= neigh->dist.y * tmp_force.z;
-		  forces[stresses + 5] -= neigh->dist.z * tmp_force.x;
-		}
-#endif /* STRESS */
-	      }
-	    }
-         }   /* j loop */
-      }  /* i loop */
-#endif /* CSH */
-
-
 	/* S E C O N D loop: calculate short-range and monopole forces,
 	   calculate static field- and dipole-contributions */
 	for (i = 0; i < inconf[h]; i++) {	/* atoms */
 	  atom = conf_atoms + i + cnfstart[h] - firstatom;
 	  type1 = atom->type;
 	  n_i = 3 * (cnfstart[h] + i);
-#ifdef CSH
-
-	  for (j = 0; j < atom->num_couln; j++) {	/* neighbors */
-	    neigh = atom->coulneigh + j;
-	    type2 = neigh->type;
-	    col = neigh->col[0];
-#else
 	  for (j = 0; j < atom->num_neigh; j++) {	/* neighbors */
 	    neigh = atom->neigh + j;
 	    type2 = neigh->type;
 	    col = neigh->col[0];
-#endif
 
-/* updating tail-functions - only necessary with variing kappa */
+	    /* updating tail-functions - only necessary with variing kappa */
 	    if (!apt->sw_kappa)
-	      //elstat_shift(neigh->r, dp_kappa, &neigh->fnval_el, &neigh->grad_el, &neigh->ggrad_el);
-	      elstat_lammps_wolf(neigh->r, dp_kappa, &neigh->fnval_el, &neigh->grad_el);
+	      elstat_shift(neigh->r, dp_kappa, &neigh->fnval_el, &neigh->grad_el, &neigh->ggrad_el);
 
 	    /* In small cells, an atom might interact with itself */
 	    self = (neigh->nr == i + cnfstart[h]) ? 1 : 0;
 
-#ifndef CSH
-	    /* calculate short-range forces if not using core-shell model*/
+	    /* calculate short-range forces */
 	    if (neigh->r < calc_pot.end[col]) {
 
 	      if (uf) {
@@ -367,13 +293,13 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 	      } else {
 		fnval = splint_dir(&calc_pot, xi, neigh->slot[0], neigh->shift[0], neigh->step[0]);
 	      }
+
 	      /* avoid double counting if atom is interacting with a
 	         copy of itself */
 	      if (self) {
 		fnval *= 0.5;
 		grad *= 0.5;
 	      }
-              //printf("ener_sum: %f  val: %f \n", forces[energy_p + h], fnval );
 	      forces[energy_p + h] += fnval;
 
 	      if (uf) {
@@ -402,7 +328,6 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 #endif /* STRESS */
 	      }
 	    }
-#endif /* Not CSH */
 
 	    /* calculate monopole forces */
 	    if (neigh->r < dp_cut && (charge[type1] || charge[type2])) {
@@ -419,21 +344,6 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 	      fnval = charge[type1] * charge[type2] * fnval_tail;
 	      grad = charge[type1] * grad_i;
 
-#ifdef CSH 
-
-              /* check if pair are a Core-Shell one */
-              if ( type1==0 && type2==4 || type1==2 && type2==5 ) {
-                 if (neigh->r <= rcut[type1 * ntypes + type2]) {   /* suppress coulomb contribution from the pair */
-                     fnval -= dp_eps * charge[type1] * charge[type2] / atoms[i].coulneigh[j].r;
-                     grad=0;
-                 }
-              }
-              //printf("%d   %d  r: %f   coul: %f \n", i, atoms[i].coulneigh[j].nr, atoms[i].coulneigh[j].r, fnval);
-#else
-              //printf("%d   %d  r: %f   coul: %f \n", i, atoms[i].neigh[j].nr, atoms[i].neigh[j].r, fnval );
-#endif
-
-
 	      if (self) {
 		grad_i *= 0.5;
 		grad_j *= 0.5;
@@ -441,9 +351,7 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 		grad *= 0.5;
 	      }
 
-	      forces[energy_p + h] += fnval ;
-
-              //printf("ener_sum: %f  val: %f \n\n", forces[energy_p + h], fnval );
+	      forces[energy_p + h] += fnval;
 
 	      if (uf) {
 		tmp_force.x = neigh->dist.x * grad;
@@ -500,8 +408,6 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 
 	  }			/* loop over neighbours */
 	}			/* end S E C O N D loop over atoms */
-
-
 
 #ifdef DIPOLE
 	/* T H I R D loop: calculate whole dipole moment for every atom */
@@ -789,11 +695,9 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 
 	/* F I F T H  loop: self energy contributions and sum-up force contributions */
 	double qq;
-        double e_shift;
 #ifdef DIPOLE
 	double pp;
 #endif /* DIPOLE */
-        e_shift=erfc(dp_kappa*dp_cut)/dp_cut;
 	for (i = 0; i < inconf[h]; i++) {	/* atoms */
 	  atom = conf_atoms + i + cnfstart[h] - firstatom;
 	  type1 = atom->type;
@@ -802,11 +706,8 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 	  /* self energy contributions */
 	  if (charge[type1]) {
 	    qq = charge[type1] * charge[type1];
-	    fnval = dp_eps * qq * (dp_kappa / sqrt(M_PI) + 0.5*e_shift );
-            printf("self ener: %d  %f  shif: %f kpp: %f  pi: %f \n", i, fnval, e_shift, dp_kappa, M_PI);
-
+	    fnval = dp_eps * dp_kappa * qq / sqrt(M_PI);
 	    forces[energy_p + h] -= fnval;
-
 	  }
 #ifdef DIPOLE
 	  if (dp_alpha[type1]) {
