@@ -1084,7 +1084,7 @@ void read_config(char *filename)
 
 
     /* For TERSOFF we create a full neighbor list, for all other potentials only a half list */
-#ifdef THREEBODY //|| defined CSH
+#ifdef THREEBODY 
     for (i = natoms; i < natoms + count; i++) {
       nnn = atoms[i].num_neigh;
       ijk = 0;
