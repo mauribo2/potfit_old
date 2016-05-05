@@ -1262,8 +1262,8 @@ void elstat_value(double r, double dp_kappa, double *ftail, double *gtail, doubl
   x[3] = exp(-x[0] * x[1]);
 
   *ftail = dp_eps * erfc(dp_kappa * r) / r;
-  *gtail = -(*ftail + x[2] * x[3]) / x[0];
-  *ggtail = (2 * x[1] * x[2] * x[3] - *gtail * 3) / x[0];
+  *gtail = -(*ftail + x[2] * x[3]) / x[0];                /* 1/r df/dr */
+  *ggtail = (2 * x[1] * x[2] * x[3] - *gtail * 3) / x[0]; /* 1/r dg/dr */
 }
 
 /****************************************************************
@@ -1283,9 +1283,7 @@ void elstat_shift(double r, double dp_kappa, double *fnval_tail, double *grad_ta
 
   elstat_value(r, dp_kappa, &ftail, &gtail, &ggtail);
   elstat_value(dp_cut, dp_kappa, &ftail_cut, &gtail_cut, &ggtail_cut);
-//  ftail_cut=0 ; gtail_cut=0 ; ggtail_cut=0 ; // to make direct sum
 
-//  *fnval_tail = ftail - ftail_cut;
   *fnval_tail = ftail - ftail_cut - x[2] * gtail_cut / 2;
   *grad_tail = gtail - gtail_cut;
   *ggrad_tail = 0.0;
@@ -1299,44 +1297,24 @@ void elstat_shift(double r, double dp_kappa, double *fnval_tail, double *grad_ta
 
 /****************************************************************
  *
- * wolf evaluation as implemented in lammps (pair_born_coul_wolf.cpp)
+ * damped shifted force Coulomb potential
+ * http://dx.doi.org/10.1063/1.2206581
  *
  ****************************************************************/
 
-void elstat_lammps_wolf(double r, double dp_kappa, double *fnval_tail, double *grad_tail)
+void elstat_dsf(double r, double dp_kappa, double *fnval_tail, double *grad_tail, double *ggrad_tail)
 {
   static double ftail, gtail, ggtail, ftail_cut, gtail_cut, ggtail_cut;
-  static double erfcc,e_shift,derfc,e_self;
-  static double x[4];
 
-  x[0] = r * r;
-  x[1] = dp_cut * dp_cut;
-  x[2] = dp_kappa * dp_kappa;
-  x[3] = 2 * dp_eps * dp_kappa / sqrt(M_PI);
-  x[4] = exp(-x[0] * x[1]);
 
-//  e_shift = erfc(alf*cut_coul)/cut_coul;
+  elstat_value(r, dp_kappa, &ftail, &gtail, &ggtail);
+  elstat_value(dp_cut, dp_kappa, &ftail_cut, &gtail_cut, &ggtail_cut);
 
-  erfcc = erfc(dp_kappa * r) / r;
-  e_shift = erfc(dp_kappa * dp_cut) / dp_cut;
+  *fnval_tail =
+      ftail - ftail_cut - (r - dp_cut) * gtail_cut * dp_cut;
+  *grad_tail = gtail - gtail_cut * dp_cut / r; /*  1/r dV/r */
+  *ggrad_tail = 0.0;
 
-  derfc = exp(-x[0] * x[1]);
-
- //         r = sqrt(rsq);
- //         prefactor = qqrd2e*qtmp*q[j]/r;
- //         erfcc = erfc(alf*r);
- //         erfcd = exp(-alf*alf*r*r);
- //         v_sh = (erfcc - e_shift*r) * prefactor;
- //         dvdrr = (erfcc/rsq + 2.0*alf/MY_PIS * erfcd/r) + f_shift;
- //         forcecoul = dvdrr*rsq*prefactor;
- //         if (factor_coul < 1.0) forcecoul -= (1.0-factor_coul)*prefactor;
-
-//  elstat_value(r, dp_kappa, &ftail, &gtail, &ggtail);
-//  elstat_value(dp_cut, dp_kappa, &ftail_cut, &gtail_cut, &ggtail_cut);
-//  ftail_cut=0 ; gtail_cut=0 ; ggtail_cut=0 ; // to make direct sum
-
-  *fnval_tail = dp_eps * (erfcc - e_shift);
-  *grad_tail = gtail - gtail_cut;
 }
 
 /****************************************************************
@@ -1348,13 +1326,12 @@ void elstat_lammps_wolf(double r, double dp_kappa, double *fnval_tail, double *g
 void init_tails(double dp_kappa)
 {
   int   i, j;
-  double e_self;
 
 #ifdef CSH
   for (i = 0; i < natoms; i++)
     for (j = 0; j < atoms[i].num_couln; j++) {
-      elstat_lammps_wolf(atoms[i].coulneigh[j].r, dp_kappa, &atoms[i].coulneigh[j].fnval_el,
-	&atoms[i].coulneigh[j].grad_el);
+      elstat_dsf(atoms[i].coulneigh[j].r, dp_kappa, &atoms[i].coulneigh[j].fnval_el,
+	&atoms[i].coulneigh[j].grad_el, &atoms[i].coulneigh[j].ggrad_el);
           // printf("%d   %d   %d, r: %f  tail: %f \n", i, j, atoms[i].coulneigh[j].nr, atoms[i].coulneigh[j].r,atoms[i].coulneigh[j].fnval_el);
     }
 #else

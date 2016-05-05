@@ -269,6 +269,9 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 	    /* calculate short-range forces if not using core-shell model*/
 	    if (neigh->r < calc_pot.end[col]) {
 
+//	     if (i==1)
+//                printf("id:%d  at %d    r: %d   ener %f \n", myid, i , neigh->nr , neigh->r);
+
 	      if (uf) {
 		fnval =
 		  splint_comb_dir(&calc_pot, xi, neigh->slot[0], neigh->shift[0], neigh->step[0], &grad);
@@ -340,7 +343,8 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 
             /* updating tail-functions - only necessary with variing kappa */
 	    if (!apt->sw_kappa)
-	      elstat_lammps_wolf(neigh->r, dp_kappa, &neigh->fnval_el, &neigh->grad_el );
+	      elstat_dsf(neigh->r, dp_kappa, &neigh->fnval_el, &neigh->grad_el, &neigh->ggrad_el);
+
 
 	    /* In small cells, an atom might interact with itself */
 	    self = (neigh->nr == i + cnfstart[h]) ? 1 : 0;
@@ -367,7 +371,6 @@ double calc_forces(double *xi_opt, double *forces, int flag)
                      grad=0;
                  }
               }
-              //printf("%d   %d  r: %f   coul: %f \n", i, atoms[i].coulneigh[j].nr, atoms[i].coulneigh[j].r, fnval);
 
 	      if (self) {
 		grad_i *= 0.5;
@@ -415,8 +418,8 @@ double calc_forces(double *xi_opt, double *forces, int flag)
 
         /* F O U R T H  loop: self energy contributions and sum-up force contributions */
         double qq;
-        double e_shift;
-        e_shift=erfc(dp_kappa*dp_cut)/dp_cut;
+	double fnval_cut, gtail_cut, ggrad_cut;
+        elstat_value(dp_cut, dp_kappa, &fnval_cut, &gtail_cut, &ggrad_cut);
         for (i = 0; i < inconf[h]; i++) {	/* atoms */
      	  atom = conf_atoms + i + cnfstart[h] - firstatom;
      	  type1 = atom->type;
@@ -425,7 +428,8 @@ double calc_forces(double *xi_opt, double *forces, int flag)
      	  /* self energy contributions */
      	  if (charge[type1]) {
      	    qq = charge[type1] * charge[type1];
-     	    fnval = dp_eps * qq * (dp_kappa / sqrt(M_PI) + 0.5*e_shift );
+	    fnval = qq * ( dp_eps * dp_kappa / sqrt(M_PI) +
+	       (fnval_cut - gtail_cut * dp_cut * dp_cut )*0.5 );
      	    forces[energy_p + h] -= fnval;
 #ifdef CSHDEBUG
 	    coulener -= fnval;
@@ -435,60 +439,59 @@ double calc_forces(double *xi_opt, double *forces, int flag)
           }
          }
 	 
+//  	/* F I F T H  LOOP: Calculate angular forces and energies */
+//          for (i = 0; i < inconf[h]; i++) {	/* atoms */
+//  	  /* Set pointer to temp atom pointer */
+//  	  atom = conf_atoms + i + cnfstart[h] - firstatom;
+//  	  type1 = atom->type;
+//  	  /* Skip every 3 spots for force array */
+//  	  n_i = 3 * (cnfstart[h] + i);
+//  	  //col = paircol + type1;
+//  
+//  	  /* Find the correct column in the potential table for angle part: g_ijk
+//  	     col2 = paircol + + typ1; */
+//  
+//  	  /* Loop over every angle formed by angular neighbors
+//  	     N(N-1)/2 possible combinations */
+//  
+//  	  /* set angl pointer to angl_part of current atom */
+//  	  angle = atom->angle_part;
+//  
+//  	  /* Loop over angles */
+//  	  ijk = 0;
+//  	  for (j = 0; j < atom->num_angn - 1; j++) {
+//  
+//  	    /* Get pointer to neighbor j */
+//  	    neigh_j = atom->angneigh + j;
+//  
+//  	    for (k = j + 1; k < atom->num_angn; k++) {
+//  
+//  	      /* Get pointer to neighbor kk */
+//  	      neigh_k = atom->angneigh + k;
+//  
+//  	      angle->g = splint_comb_dir(&calc_pot, xi, angle->slot, angle->shift, angle->step, &angle->dg);
+//  
+//  	      forces[energy_p + h] += angle->g ;
+//  	      
+//  //              printf(" @#@  %f slo shif ste %d  %f  %f  \n", calc_pot.begin[ paircol + type1], angle->slot, angle->shift, angle->step );
+//  //              printf(" @#@  %d  %d  %d    %f  %f  %f  \n", neigh_j->nr+1, i+1 , neigh_k->nr+1, angle->theta*180/M_PI, angle->theta , angle->g );
+//  
+//  #ifdef CSHDEBUG
+//  	      angener += angle->g;
+//  #endif /* CSHDEBUG */
+//  
+//  	      /* Increase angl pointer */
+//  	      ijk++;
+//  	      angle++;
+//              } /* k loop */
+//  
+//  	  }  /* j loop */
+//  	}  /* end F I F T H loop over atoms */
 
-	/* F I F T H  LOOP: Calculate angular forces and energies */
-        for (i = 0; i < inconf[h]; i++) {	/* atoms */
-	  /* Set pointer to temp atom pointer */
-	  atom = conf_atoms + i + cnfstart[h] - firstatom;
-	  type1 = atom->type;
-	  /* Skip every 3 spots for force array */
-	  n_i = 3 * (cnfstart[h] + i);
-	  //col = paircol + type1;
-
-	  /* Find the correct column in the potential table for angle part: g_ijk
-	     col2 = paircol + + typ1; */
-
-	  /* Loop over every angle formed by angular neighbors
-	     N(N-1)/2 possible combinations */
-
-	  /* set angl pointer to angl_part of current atom */
-	  angle = atom->angle_part;
-
-	  /* Loop over angles */
-	  ijk = 0;
-	  for (j = 0; j < atom->num_angn - 1; j++) {
-
-	    /* Get pointer to neighbor j */
-	    neigh_j = atom->angneigh + j;
-
-	    for (k = j + 1; k < atom->num_angn; k++) {
-
-	      /* Get pointer to neighbor kk */
-	      neigh_k = atom->angneigh + k;
-
-	      angle->g = splint_comb_dir(&calc_pot, xi, angle->slot, angle->shift, angle->step, &angle->dg);
-
-	      forces[energy_p + h] += angle->g ;
-	      
-//              printf(" @#@  %f slo shif ste %d  %f  %f  \n", calc_pot.begin[ paircol + type1], angle->slot, angle->shift, angle->step );
-//              printf(" @#@  %d  %d  %d    %f  %f  %f  \n", neigh_j->nr+1, i+1 , neigh_k->nr+1, angle->theta*180/M_PI, angle->theta , angle->g );
 
 #ifdef CSHDEBUG
-	      angener += angle->g;
+        printf("id:%d  %d    %f   %f  %f   %f  \n", myid, h, coulener, vdwener, csener, angener );
 #endif /* CSHDEBUG */
-
-	      /* Increase angl pointer */
-	      ijk++;
-	      angle++;
-            } /* k loop */
-
-	  }  /* j loop */
-	}  /* end F I F T H loop over atoms */
-
-#ifdef CSHDEBUG
-        printf("%d    %f   %f  %f   %f  \n", h, coulener, vdwener, csener, angener );
-#endif /* CSHDEBUG */
-
 
 
         /* whole energy contributions flow into tmpsum */

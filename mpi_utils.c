@@ -288,6 +288,7 @@ void broadcast_params()
   MPI_Address(&testatom.E_tot, 		&displs[count++]);
 #endif /* DIPOLE */
 #if defined THREEBODY || defined CSH
+  MPI_Address(&testatom.num_couln, 	&displs[count++]);
   MPI_Address(&testatom.num_angles, 	&displs[count++]);
 #ifdef MEAM
   MPI_Address(&testatom.rho_eam,	&displs[count++]);
@@ -402,6 +403,9 @@ void broadcast_params()
 #ifdef COULOMB
     apot_table.ratio = (double *)malloc(ntypes * sizeof(double));
 #endif /* COULOMB */
+#ifdef CSH
+    apot_table.cweight = (int *)malloc(paircol * sizeof(int));
+#endif /* CSH */
     smooth_pot = (int *)malloc(apot_table.number * sizeof(int));
     invar_pot = (int *)malloc(apot_table.number * sizeof(int));
     rcut = (double *)malloc(ntypes * ntypes * sizeof(double));
@@ -417,6 +421,9 @@ void broadcast_params()
 #ifdef COULOMB
     reg_for_free(apot_table.ratio, "apot_table.ratio");
 #endif
+#ifdef CSH
+    reg_for_free(apot_table.cweight, "apot_table.cweight");
+#endif /* CSH */
     reg_for_free(smooth_pot, "smooth_pot");
     reg_for_free(invar_pot, "invar_pot");
     reg_for_free(rcut, "rcut");
@@ -444,6 +451,9 @@ void broadcast_params()
   MPI_Bcast(&apot_table.last_charge, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   MPI_Bcast(apot_table.ratio, ntypes, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 #endif /* COULOMB */
+#ifdef CSH
+  MPI_Bcast(apot_table.cweight, paircol, MPI_INT, 0, MPI_COMM_WORLD);
+#endif /* CSH */
   if (have_globals) {
     if (myid > 0) {
       apot_table.n_glob = (int *)malloc(apot_table.globals * sizeof(int));
@@ -546,16 +556,33 @@ void broadcast_neighbors()
 
   init_neigh(&neigh);
 
+#ifdef CSH
+  int  coulneighs = 0;
+  neigh_t coulneigh;
+  init_neigh(&coulneigh);
+#endif /* NEWCOUL */
+
   for (i = 0; i < natoms; i++) {
     atom = conf_atoms + i - firstatom;
     if (myid == 0)
       neighs = atoms[i].num_neigh;
     MPI_Bcast(&neighs, 1, MPI_INT, 0, MPI_COMM_WORLD);
+#ifdef CSH
+    if (myid == 0)
+      coulneighs = atoms[i].num_couln;
+    MPI_Bcast(&coulneighs, 1, MPI_INT, 0, MPI_COMM_WORLD);
+#endif /* CSH */
     if (i >= firstatom && i < (firstatom + myatoms)) {
       atom->neigh = (neigh_t *)malloc(neighs * sizeof(neigh_t));
       for (j = 0; j < neighs; j++)
 	init_neigh(atom->neigh + j);
       reg_for_free(atom->neigh, "broadcast atom[%d]->neigh", i);
+#ifdef CSH
+      atom->coulneigh = (neigh_t *)malloc(coulneighs * sizeof(neigh_t));
+      for (j = 0; j < coulneighs; j++)
+	init_neigh(atom->coulneigh + j);
+      reg_for_free(atom->coulneigh, "broadcast atom[%d]->coulneigh", i);
+#endif /* CSH */
     }
     for (j = 0; j < neighs; j++) {
       if (myid == 0)
@@ -565,6 +592,16 @@ void broadcast_neighbors()
 	atom->neigh[j] = neigh;
       }
     }
+#ifdef CSH
+    for (j = 0; j < coulneighs; j++) {
+      if (myid == 0)
+	coulneigh = atoms[i].coulneigh[j];
+      MPI_Bcast(&coulneigh, 1, MPI_NEIGH, 0, MPI_COMM_WORLD);
+      if (i >= firstatom && i < (firstatom + myatoms)) {
+	atom->coulneigh[j] = coulneigh;
+      }
+    }
+#endif /* CSH */
   }
 }
 
