@@ -97,8 +97,6 @@ double calc_forces(double *xi_opt, double *forces, int flag)
   double sum_charges;
   double dp_kappa;
 
-  double ccos;
-
   angle_t *angle;
 
   //printf(" \n \n potlen %d ncol %d step %f\n \n ", calc_pot.len,  calc_pot.ncols, calc_pot.step );
@@ -198,7 +196,7 @@ double calc_forces(double *xi_opt, double *forces, int flag)
       int   n_i, n_j;
       double fnval, grad, fnval_tail, grad_tail, grad_i, grad_j;
       atom_t *atom;
-      neigh_t *neigh, *neigh_j, *neigh_k;
+      neigh_t *neigh;  //, *neigh_j, *neigh_k;
       int   ijk;
 
 
@@ -439,54 +437,57 @@ double calc_forces(double *xi_opt, double *forces, int flag)
           }
          }
 	 
-//  	/* F I F T H  LOOP: Calculate angular forces and energies */
-//          for (i = 0; i < inconf[h]; i++) {	/* atoms */
-//  	  /* Set pointer to temp atom pointer */
-//  	  atom = conf_atoms + i + cnfstart[h] - firstatom;
-//  	  type1 = atom->type;
-//  	  /* Skip every 3 spots for force array */
-//  	  n_i = 3 * (cnfstart[h] + i);
-//  	  //col = paircol + type1;
-//  
-//  	  /* Find the correct column in the potential table for angle part: g_ijk
-//  	     col2 = paircol + + typ1; */
-//  
-//  	  /* Loop over every angle formed by angular neighbors
-//  	     N(N-1)/2 possible combinations */
-//  
-//  	  /* set angl pointer to angl_part of current atom */
-//  	  angle = atom->angle_part;
-//  
-//  	  /* Loop over angles */
-//  	  ijk = 0;
-//  	  for (j = 0; j < atom->num_angn - 1; j++) {
-//  
-//  	    /* Get pointer to neighbor j */
-//  	    neigh_j = atom->angneigh + j;
-//  
-//  	    for (k = j + 1; k < atom->num_angn; k++) {
-//  
-//  	      /* Get pointer to neighbor kk */
-//  	      neigh_k = atom->angneigh + k;
-//  
-//  	      angle->g = splint_comb_dir(&calc_pot, xi, angle->slot, angle->shift, angle->step, &angle->dg);
-//  
-//  	      forces[energy_p + h] += angle->g ;
-//  	      
-//  //              printf(" @#@  %f slo shif ste %d  %f  %f  \n", calc_pot.begin[ paircol + type1], angle->slot, angle->shift, angle->step );
-//  //              printf(" @#@  %d  %d  %d    %f  %f  %f  \n", neigh_j->nr+1, i+1 , neigh_k->nr+1, angle->theta*180/M_PI, angle->theta , angle->g );
-//  
-//  #ifdef CSHDEBUG
-//  	      angener += angle->g;
-//  #endif /* CSHDEBUG */
-//  
-//  	      /* Increase angl pointer */
-//  	      ijk++;
-//  	      angle++;
-//              } /* k loop */
-//  
-//  	  }  /* j loop */
-//  	}  /* end F I F T H loop over atoms */
+  	/* F I F T H  LOOP: Calculate angular forces and energies */
+          for (i = 0; i < inconf[h]; i++) {	/* atoms */
+  	  /* Set pointer to temp atom pointer */
+  	  atom = conf_atoms + i + cnfstart[h] - firstatom;
+  	  type1 = atom->type;
+  	  /* Skip every 3 spots for force array */
+  	  n_i = 3 * (cnfstart[h] + i);
+  	  //col = paircol + type1;
+  
+  	  /* Find the correct column in the potential table for angle part: g_ijk
+  	     col2 = paircol + + typ1; */
+  
+  	  /* Loop over every angle formed by angular neighbors
+  	     N(N-1)/2 possible combinations */
+  
+  	  /* set angl pointer to angl_part of current atom */
+  	  angle = atom->angle_part;
+  
+  	  /* Loop over angles */
+  	  ijk = 0;
+  	  for (j = 0; j < atom->num_angn - 1; j++) {
+  
+  	    /* Get pointer to neighbor j */
+  	   // neigh_j = atom->angneigh + j;
+  
+  	    for (k = j + 1; k < atom->num_angn; k++) {
+  
+  	      /* Get pointer to neighbor kk */
+  	  //    neigh_k = atom->angneigh + k;
+  
+  	      angle->g = splint_comb_dir(&calc_pot, xi, angle->slot, angle->shift, angle->step, &angle->dg);
+  
+  	      forces[energy_p + h] += angle->g ;
+  	      
+  //              printf(" @#@  %f slo shif ste %d  %f  %f  \n", calc_pot.begin[ paircol + type1], angle->slot, angle->shift, angle->step );
+  //              printf(" @#@  %d  %d  %d    %f  %f  %f  \n", neigh_j->nr+1, i+1 , neigh_k->nr+1, angle->theta*180/M_PI, angle->theta , angle->g );
+  
+  #ifdef CSHDEBUG
+  	      angener += angle->g;
+  #endif /* CSHDEBUG */
+  
+  	      /* Increase angl pointer */
+  	      ijk++;
+  	      angle++;
+              } /* k loop */
+  
+  	  }  /* j loop */
+  #ifdef CSHDEBUG
+          printf(" at: %d          f.x %f  f.x %f  f.x %f \n " ,  i, forces[n_i + 0],forces[n_i + 1],forces[n_i + 2]);
+  #endif /* CSHDEBUG */
+  	}  /* end F I F T H loop over atoms */
 
 
 #ifdef CSHDEBUG

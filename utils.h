@@ -42,7 +42,7 @@ void  free_mat_double(double **);
 /* properly initialization */
 void  init_atom(atom_t *);
 void  init_neigh(neigh_t *);
-#ifdef THREEBODY
+#if defined THREEBODY || defined CSH
 void  init_angle(angle_t *);
 #endif /* THREEBODY */
 
