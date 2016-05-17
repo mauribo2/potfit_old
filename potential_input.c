@@ -720,7 +720,7 @@ void read_pot_table0(pot_table_t *pt, apot_table_t *apt, char *filename, FILE *i
   /* read coreshell parameters */
   fscanf(infile, " %s", buffer);
   if (strcmp("coulweight", buffer) != 0) {
-    error(1, "Could not read angular coulomb weights parameter for core shell pairs");
+    error(1, "Could not read coulomb weights parameter for core shell pairs");
   }
   for (i = 0; i < paircol; i++) {
     if (1 > fscanf(infile, "%lf", &apt->cweight[i])) {

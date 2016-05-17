@@ -33,6 +33,10 @@
 #include "config.h"
 #include "utils.h"
 
+#ifdef CSH
+#define EPSILON 1.0e-20
+#endif
+
 /****************************************************************
  *
  *  read the configurations
@@ -593,7 +597,8 @@ void read_config(char *filename)
    
 
 #ifdef CSH 
-             /* neighbors table for coulomb interaction only */
+              r+=EPSILON;
+              /* neighbors table for coulomb interaction only */
 	      if (r <= dp_cut ) {
 	        atoms[i].coulneigh =
 	       	 (neigh_t *)realloc(atoms[i].coulneigh, (atoms[i].num_couln + 1) * sizeof(neigh_t));
@@ -666,7 +671,8 @@ void read_config(char *filename)
 		      fprintf(stderr, "The distance %f is smaller than the beginning\n", r);
 		      fprintf(stderr, "of the potential #%d (r_begin=%f).\n", col, calc_pot.begin[col]);
 		      fflush(stdout);
-		      error(1, "Short distance!");
+		      //error(1, "Short distance!");
+                      warning("Short distance\n");
 		    }
 		    istep = calc_pot.invstep[col];
 		    slot = (int)(rr * istep);
@@ -1489,7 +1495,8 @@ void read_config(char *filename)
   free(mindist);
 
   if (sh_dist)
-    error(1, "Distances too short, last occurence conf %d, see above for details\n", sh_dist);
+    // error(1, "Distances too short, last occurence conf %d, see above for details\n", sh_dist);
+    warning("Distances too short, last occurence conf %d, see above for details\n", sh_dist);
 
   return;
 }
