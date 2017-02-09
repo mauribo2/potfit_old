@@ -131,7 +131,7 @@ SHELL = /bin/bash
 # i686-icc 	32bit Intel Compiler
 # i686-gcc  	32bit GNU Compiler
 #
-SYSTEM 		= x86_64-gcc
+SYSTEM  		= x86_64-gcc
 ##SYSTEM 		= $(shell uname -m)-gcc
 
 # This is the directory where the potfit binary will be moved to.
