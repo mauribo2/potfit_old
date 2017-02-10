@@ -40,11 +40,13 @@
 
 #include "potfit.h"
 
-#ifdef ACML
-#include <acml.h>
-#else /* ACML */
+#if defined(MKL)
 #include <mkl_lapack.h>
-#endif /* ACML */
+#elif defined(ACML)
+#include <acml.h>
+#elif defined(__ACCELERATE__)
+#include <Accelerate/Accelerate.h>
+#endif
 
 #include "bracket.h"
 #include "optimize.h"
@@ -179,13 +181,17 @@ void powell_lsq(double *xi)
       j = 1;			/* 1 rhs */
 
       /* Linear Equation Solution (lapack) */
-#ifdef ACML
+#if defined(ACML)
       dsysvx('N', 'U', ndim, j, &lineqsys[0][0], ndim, &les_inverse[0][0], ndim,
 	perm_indx, p, ndim, q, ndim, &cond, &ferror, &berror, &i);
-#else
+#elif defined(MKL)
       dsysvx(fact, uplo, &ndim, &j, &lineqsys[0][0], &ndim, &les_inverse[0][0],
 	&ndim, perm_indx, p, &ndim, q, &ndim, &cond, &ferror, &berror, work, &worksize, iwork, &i);
+#elif defined(__ACCELERATE__)
+      dsysvx_(fact, uplo, &ndim, &j, &lineqsys[0][0], &ndim, &les_inverse[0][0],
+	&ndim, perm_indx, p, &ndim, q, &ndim, &cond, &ferror, &berror, work, &worksize, iwork, &i);
 #endif /* ACML */
+
 #if defined DEBUG && !(defined APOT)
       printf("q0: %d %f %f %f %f %f %f %f %f\n", i, q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7]);
 #endif /* DEBUG && !APOT */
